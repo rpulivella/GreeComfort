@@ -1,0 +1,12 @@
+{
+  "domain": "gree_comfort",
+  "name": "Gree Comfort",
+  "version": "3.3.2-comfort",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": [
+    "pycryptodome",
+    "aiofiles"
+  ],
+  "config_flow": true
+}
