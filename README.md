@@ -5,7 +5,7 @@ Enhanced Gree HVAC integration with comfort modes, manual override tracking, and
 ## Project Structure
 
 ```
-GreeCustom/
+GreeComfort/
 ├── custom_components/
 │   └── gree_comfort/          # Working integration (ready to install)
 ├── reference-original/
