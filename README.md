@@ -48,8 +48,9 @@ cp -r custom_components/gree_comfort /config/custom_components/
 
 - ✅ **Comfort Preset Modes**: Home, Sleep, Away, Off
 - ✅ **Dual Temperatures**: Separate heat/cool temps per preset
-- ✅ **Number Entities**: Easy preset temperature configuration (7 entities)
+- ✅ **Number Entities**: Easy preset temperature configuration (8 entities)
 - ✅ **Manual Override Tracking**: Binary sensor + clear button
+- ✅ **Smart 8°C Mode**: Auto frost protection for Away/Sleep heat presets after configurable threshold
 - ✅ **Cycle Management**: Optional compressor protection
 - ✅ **HVAC Action**: Real-time heating/cooling/idle status
 - ✅ **Smart Units**: Auto °F/°C detection and conversion
@@ -59,9 +60,18 @@ cp -r custom_components/gree_comfort /config/custom_components/
 
 Full documentation available in [`docs/README.md`](docs/README.md)
 
+## Changelog
+
+### 3.3.2-comfort-2 (2026-02-23)
+- `88b75be` — Add smart 8°C mode for away/sleep heat presets
+- `2bb2efe` — Fix 8°C mode reporting as 8°F when HA units are Fahrenheit
+
+### 3.3.2-comfort-1 (2026-02-01)
+- `670bf3a` — Initial comfort mode release
+
 ## Version
 
-- **Current**: 3.3.2-comfort (2026-02-01)
+- **Current**: 3.3.2-comfort-2 (2026-02-23)
 - **Base**: RobHofmann/HomeAssistant-GreeClimateComponent v3.3.2
 - **Domain**: `gree_comfort` (separate from HACS version)
 

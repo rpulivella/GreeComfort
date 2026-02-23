@@ -9,6 +9,7 @@ This version extends the base Gree integration with:
 - ✅ **Number Entities**: Easy access to preset temperatures and idle tolerance on device page
 - ✅ **Manual Override Tracking**: Binary sensor shows when temperature is manually adjusted
 - ✅ **Clear Override Button**: One-tap return to preset temperature
+- ✅ **Smart 8°C Mode**: Auto frost protection for Away/Sleep heat presets after configurable threshold (default 60 min)
 - ✅ **Cycle Management**: Optional compressor protection with configurable on/off times
 - ✅ **HVAC Action Tracking**: Real-time heating/cooling/idle/drying/fan/off status
 - ✅ **Smart Temperature Handling**: Auto-detects °F/°C preference with proper delta conversion
@@ -50,7 +51,7 @@ For each Gree device, the integration creates:
 - HVAC modes, fan speeds, swing modes
 - HVAC action tracking (heating/cooling/idle/etc.)
 
-### Number Entities (7)
+### Number Entities (8)
 - **Preset Home - Heat Temperature**: Target temp for Home preset in heating mode
 - **Preset Home - Cool Temperature**: Target temp for Home preset in cooling mode
 - **Preset Sleep - Heat Temperature**: Target temp for Sleep preset in heating mode
@@ -58,6 +59,7 @@ For each Gree device, the integration creates:
 - **Preset Away - Heat Temperature**: Target temp for Away preset in heating mode
 - **Preset Away - Cool Temperature**: Target temp for Away preset in cooling mode
 - **Idle Tolerance (±)**: Temperature tolerance for idle detection
+- **Smart 8°C Threshold**: Minutes Away/Sleep+heat must be active before frost protection engages (default: 60, range: 15–480)
 
 All temperature entities automatically display in your system's preferred units (°F or °C).
 
@@ -75,6 +77,7 @@ All temperature entities automatically display in your system's preferred units 
 ### Switches
 - X-Fan, Lights, Health, Power Save, 8°C Heat, Sleep, Air
 - Auto X-Fan, Auto Light, Anti Direct Blow, Light Sensor, Beeper
+- **Smart 8°C Mode** (config): Enables/disables automatic frost protection for Away/Sleep presets
 
 ### Select Entities (2)
 - **Comfort Mode**: Quick access to preset modes (Home, Sleep, Away, Off) - perfect for dashboard tiles
@@ -258,6 +261,30 @@ Settings → Devices & Services → Gree Comfort → Configure
 
 **Note**: Cycle management only affects automatic preset temperature changes, not manual control.
 
+### Smart 8°C Mode
+
+When Away or Sleep preset is active in **heating mode**, the integration can automatically engage the device's built-in 8°C frost protection (`StHt`) after a configurable time threshold. This is useful when you leave home or go to sleep and want the unit to drop to 8°C/46.4°F for energy savings once enough time has passed.
+
+**How it works:**
+1. You set the preset to Away or Sleep with HVAC mode = Heat
+2. A timer starts
+3. After the threshold (default 60 min), `StHt=1` is sent to the device
+4. The device locks to 8°C (displayed as 8°C or 46.4°F in HA)
+5. When you change preset to Home (or any non-eligible preset), `StHt=0` is sent and the preset temperature is restored
+
+**Configuration (on device page):**
+- **Smart 8°C Mode** switch — enable/disable the feature (default: on)
+- **Smart 8°C Threshold** number — minutes before activation (default: 60, range: 15–480)
+
+**Manual 8°C Heat switch:**
+The existing **8°C Heat** switch on the device page still works independently at any time. If you manually turn it on, it counts as a manual override. If you manually turn it off while smart mode is active, the timer restarts and smart mode will re-engage after the full threshold.
+
+**State attributes for debugging:**
+```yaml
+{{ state_attr('climate.bedroom_ac', 'stht_smart') }}
+# Returns: {active, preset_active_since, elapsed_minutes, threshold_minutes}
+```
+
 ## Automation Examples
 
 ### Adjust Away Temperature When Leaving
@@ -366,12 +393,19 @@ This ensures proper behavior. For example:
 2. Check that min times are set appropriately (defaults: 180s off, 300s on)
 3. Review logs for cycle management messages
 
+### Smart 8°C mode not activating
+1. Verify "Smart 8°C Mode" switch is on (device page → see all entities)
+2. Confirm preset is Away or Sleep AND HVAC mode is Heat AND unit is powered on
+3. Check `stht_smart.elapsed_minutes` in state attributes to see timer progress
+4. Check that threshold is not set too high
+
 ## Technical Details
 
 ### State Persistence
 - Preset temperatures: Stored via RestoreEntity, survive restarts
 - Manual override flag: Stored in climate entity, survives restarts
 - Preset mode: Stored in climate entity, survives restarts
+- Smart 8°C active flag + timer start: Stored in climate entity, survives restarts
 
 ### Real-time Updates
 - Manual override binary sensor updates immediately via dispatcher signals
@@ -395,5 +429,6 @@ This is a personal modification of the upstream Gree integration.
 
 ## Version History
 
-- **3.3.2-comfort** (2026-02-01): Added comfort modes, manual override, cycle management, number entities
+- **3.3.2-comfort-2** (2026-02-23): Smart 8°C mode; fix 8°C displaying as 8°F in Fahrenheit systems
+- **3.3.2-comfort-1** (2026-02-01): Added comfort modes, manual override, cycle management, number entities
 - **3.3.2** (base): Upstream version from RobHofmann
