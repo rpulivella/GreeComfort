@@ -425,8 +425,11 @@ class GreeClimate(ClimateEntity):
     def UpdateHATargetTemperature(self):
         # Sync set temperature to HA. If 8℃ heating is active we set the temp in HA to 8℃ so that it shows the same as the AC display.
         if self._acOptions["StHt"] and (int(self._acOptions["StHt"]) == 1):
-            self._target_temperature = 8
-            _LOGGER.debug(f"{self._name}: Target temperature set to 8°C for 8°C heating mode")
+            if self._unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
+                self._target_temperature = (8.0 * 9.0 / 5.0) + 32.0  # 8°C → °F
+            else:
+                self._target_temperature = 8
+            _LOGGER.debug(f"{self._name}: Target temperature set to {self._target_temperature}{self._unit_of_measurement} for 8°C heating mode")
         else:
             temp_c = decode_temp_c(SetTem=self._acOptions["SetTem"], TemRec=self._acOptions["TemRec"])  # takes care of 1/2 degrees
             temp_f = gree_c_to_f(SetTem=self._acOptions["SetTem"], TemRec=self._acOptions["TemRec"])
