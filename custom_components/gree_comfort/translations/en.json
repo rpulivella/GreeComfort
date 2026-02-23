@@ -227,6 +227,10 @@
       "target_tolerance": {
         "name": "Target Tolerance (±)",
         "description": "Temperature band for target satisfaction (target reached). Used by cycle management to determine when unit can turn off. NOT used for idle detection (compressor state)."
+      },
+      "stht_smart_threshold_minutes": {
+        "name": "Smart 8°C Threshold",
+        "description": "How long the Away or Sleep preset must be active in heating mode before Smart 8°C mode automatically engages frost protection."
       }
     },
     "select": {
@@ -343,6 +347,10 @@
       "beeper": {
         "name": "Beeper",
         "description": "Controls the beeper sounds from the air conditioner unit. When enabled, the unit will make sounds for button presses and status changes."
+      },
+      "stht_smart": {
+        "name": "Smart 8°C Mode",
+        "description": "When enabled, automatically activates 8°C frost protection after the Away or Sleep preset has been active in heating mode for the configured threshold. The manual 8°C Heat switch continues to work independently."
       }
     }
   }

@@ -87,6 +87,15 @@ async def _set_beeper(device, value: bool) -> None:
     setattr(device, "_beeper_enabled", value)
 
 
+async def _set_stht_smart(device, value: bool) -> None:
+    setattr(device, "_stht_smart_enabled", value)
+    if not value and getattr(device, "_stht_smart_active", False):
+        # Feature disabled while active — deactivate StHt immediately
+        setattr(device, "_stht_smart_active", False)
+        setattr(device, "_preset_active_since", None)
+        await device.SyncState({"StHt": 0})
+
+
 SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
     GreeSwitchEntityDescription(
         property_key="xfan",
@@ -172,6 +181,15 @@ SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
         value_fn=lambda device: getattr(device, "_beeper_enabled", True),
         set_fn=_set_beeper,
         restore_state=True,
+    ),
+    GreeSwitchEntityDescription(
+        property_key="stht_smart",
+        translation_key="stht_smart",
+        icon="mdi:thermometer-alert",
+        value_fn=lambda device: getattr(device, "_stht_smart_enabled", True),
+        set_fn=_set_stht_smart,
+        restore_state=True,
+        entity_category=EntityCategory.CONFIG,
     ),
 )
 

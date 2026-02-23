@@ -352,6 +352,12 @@ class GreeClimate(ClimateEntity):
         self._last_off_time = None
         self._forced_off = False
 
+        # Smart 8°C mode state (defaults; updated by switch/number entity restore)
+        self._stht_smart_enabled = True
+        self._stht_smart_threshold_minutes = 60
+        self._stht_smart_active = False
+        self._preset_active_since = None
+
         # Temperature history for idle detection (30 seconds at 2-second polling)
         self._temp_history = deque(maxlen=15)
 
@@ -765,6 +771,9 @@ class GreeClimate(ClimateEntity):
         if self._enforce_off_cycle:
             await self._manage_temperature_cycling()
 
+        # Manage smart 8°C mode
+        await self._manage_stht_auto()
+
     @property
     def name(self):
         _LOGGER.debug(f"{self._name}: name() = {self._name}")
@@ -1038,6 +1047,18 @@ class GreeClimate(ClimateEntity):
                 "min_off_time_seconds": self._min_off_time.total_seconds(),
             }
 
+        # Smart 8°C mode debug info
+        if self._stht_smart_enabled:
+            elapsed_s = None
+            if self._preset_active_since:
+                elapsed_s = (datetime.now() - self._preset_active_since).total_seconds()
+            attributes["stht_smart"] = {
+                "active": self._stht_smart_active,
+                "preset_active_since": self._preset_active_since.isoformat() if self._preset_active_since else None,
+                "elapsed_minutes": round(elapsed_s / 60, 1) if elapsed_s is not None else None,
+                "threshold_minutes": self._stht_smart_threshold_minutes,
+            }
+
         if self.outside_temperature is not None:
             attributes["outside_temperature"] = self.outside_temperature
             attributes["outside_temperature_unit"] = self._unit_of_measurement
@@ -1132,12 +1153,6 @@ class GreeClimate(ClimateEntity):
         # Track last non-Auto mode for smart fallback
         if hvac_mode in (HVACMode.HEAT, HVACMode.COOL):
             self._last_non_auto_hvac_mode = hvac_mode
-            # Persist it (convert enum to string)
-            last_mode_str = hvac_mode.value if isinstance(hvac_mode, HVACMode) else hvac_mode
-            await self._storage.async_save({
-                "preset_mode": self._preset_mode,
-                "last_non_auto_hvac_mode": last_mode_str
-            })
 
         c = {}
         if hvac_mode == HVACMode.OFF:
@@ -1153,6 +1168,7 @@ class GreeClimate(ClimateEntity):
                 if (hvac_mode == HVACMode.COOL) or (hvac_mode == HVACMode.DRY):
                     c.update({"Blo": 1})
         await self.SyncState(c)
+        await self._save_persistent_state()
 
         # If we have an active preset, apply its temp for the new mode
         if self._preset_mode != PRESET_NONE:
@@ -1163,6 +1179,11 @@ class GreeClimate(ClimateEntity):
     async def _apply_preset_temperature(self):
         """Apply temperature based on current preset and hvac_mode."""
         if self._preset_mode == PRESET_NONE or self._preset_mode == PRESET_OFF:
+            return
+
+        # Smart 8°C mode controls the temperature — don't override it with preset temp
+        if self._stht_smart_active:
+            _LOGGER.debug(f"{self._name}: Skipping preset temp apply — smart 8°C mode is active")
             return
 
         temps = self._preset_temps[self._preset_mode]
@@ -1264,6 +1285,73 @@ class GreeClimate(ClimateEntity):
                     else:
                         _LOGGER.debug(f"{self._name}: Needs heating/cooling but min off not met ({time_off:.0f}s < {min_off:.0f}s)")
 
+    async def _manage_stht_auto(self):
+        """Auto-activate 8°C frost protection for away/sleep heat presets after threshold."""
+        if not self._stht_smart_enabled:
+            return
+
+        eligible = (
+            self._preset_mode in (PRESET_AWAY, PRESET_SLEEP)
+            and self.hvac_mode == HVACMode.HEAT
+            and self._acOptions.get("Pow") == 1
+        )
+
+        if not eligible:
+            if self._preset_active_since is not None:
+                self._preset_active_since = None
+            if self._stht_smart_active:
+                _LOGGER.info(f"{self._name}: Conditions no longer met - deactivating smart 8°C mode")
+                self._stht_smart_active = False
+                await self.SyncState({"StHt": 0})
+                await self._save_persistent_state()
+            return
+
+        # Start timer if not already running
+        if self._preset_active_since is None:
+            self._preset_active_since = datetime.now()
+            _LOGGER.info(f"{self._name}: Smart 8°C timer started for {self._preset_mode}+heat preset")
+            await self._save_persistent_state()
+
+        # Already smart-active — verify device still has StHt=1
+        if self._stht_smart_active:
+            if self._acOptions.get("StHt") != 1:
+                # User or device turned StHt off — respect it, restart the timer
+                _LOGGER.info(f"{self._name}: Smart 8°C was turned off externally - restarting timer")
+                self._stht_smart_active = False
+                self._preset_active_since = datetime.now()
+                await self._save_persistent_state()
+            return
+
+        # Don't interfere if user manually turned StHt on
+        if self._acOptions.get("StHt") == 1:
+            return
+
+        # Check if threshold elapsed
+        elapsed = (datetime.now() - self._preset_active_since).total_seconds()
+        threshold = self._stht_smart_threshold_minutes * 60
+        if elapsed >= threshold:
+            _LOGGER.info(f"{self._name}: Smart 8°C activating after {elapsed / 60:.1f}min in {self._preset_mode}+heat")
+            self._stht_smart_active = True
+            await self.SyncState({"StHt": 1})
+            await self._save_persistent_state()
+        else:
+            remaining = (threshold - elapsed) / 60
+            _LOGGER.debug(f"{self._name}: Smart 8°C timer: {elapsed / 60:.1f}min elapsed, {remaining:.1f}min remaining")
+
+    async def _save_persistent_state(self):
+        """Save all persistent state to storage in one call."""
+        last_mode_str = (
+            self._last_non_auto_hvac_mode.value
+            if isinstance(self._last_non_auto_hvac_mode, HVACMode)
+            else self._last_non_auto_hvac_mode
+        )
+        await self._storage.async_save({
+            "preset_mode": self._preset_mode,
+            "last_non_auto_hvac_mode": last_mode_str,
+            "preset_active_since": self._preset_active_since.isoformat() if self._preset_active_since else None,
+            "stht_smart_active": self._stht_smart_active,
+        })
+
     async def async_set_preset_mode(self, preset_mode):
         """Set preset mode and apply appropriate temperature or turn off."""
         _LOGGER.info(f"{self._name}: async_set_preset_mode(): {preset_mode}")
@@ -1274,16 +1362,15 @@ class GreeClimate(ClimateEntity):
             _LOGGER.info(f"{self._name}: Clearing manual override due to preset change")
         self._set_manual_override(False)
 
-        # Persist the preset mode and last non-auto mode
-        last_mode_str = (
-            self._last_non_auto_hvac_mode.value
-            if isinstance(self._last_non_auto_hvac_mode, HVACMode)
-            else self._last_non_auto_hvac_mode
-        )
-        await self._storage.async_save({
-            "preset_mode": preset_mode,
-            "last_non_auto_hvac_mode": last_mode_str
-        })
+        # Deactivate smart 8°C mode immediately on preset change
+        if self._stht_smart_active:
+            _LOGGER.info(f"{self._name}: Preset changed to {preset_mode} - deactivating smart 8°C mode")
+            self._stht_smart_active = False
+            await self.SyncState({"StHt": 0})
+        self._preset_active_since = None
+
+        # Persist all state
+        await self._save_persistent_state()
 
         # Notify select entity of preset mode change
         signal = f"{DOMAIN}_{self._mac_addr}_preset_mode_update"
@@ -1358,6 +1445,16 @@ class GreeClimate(ClimateEntity):
                 self._last_non_auto_hvac_mode = HVACMode(last_mode_str)
                 _LOGGER.info(f"{self._name}: Restored last non-auto mode: {self._last_non_auto_hvac_mode}")
 
+            # Restore smart 8°C mode state
+            self._stht_smart_active = data.get("stht_smart_active", False)
+            preset_active_since_str = data.get("preset_active_since")
+            if preset_active_since_str:
+                try:
+                    self._preset_active_since = datetime.fromisoformat(preset_active_since_str)
+                except (ValueError, TypeError):
+                    self._preset_active_since = None
+            _LOGGER.info(f"{self._name}: Restored smart 8°C state: active={self._stht_smart_active}, timer_start={self._preset_active_since}")
+
         # Fetch current device state (reads temp, mode, etc. from physical unit)
         await self.async_update()
 
@@ -1370,6 +1467,17 @@ class GreeClimate(ClimateEntity):
             # No active preset, so no override possible
             self._manual_override = False
             _LOGGER.debug(f"{self._name}: No active preset - manual override = False")
+            return
+
+        # If smart mode activated StHt, it's not a manual override — skip detection
+        # If the user manually toggled StHt on, treat it as a manual override (temp = 8°C by choice)
+        if self._acOptions and self._acOptions.get("StHt") == 1:
+            if self._stht_smart_active:
+                self._manual_override = False
+                _LOGGER.debug(f"{self._name}: Smart 8°C active - manual override detection skipped")
+            else:
+                self._manual_override = True
+                _LOGGER.debug(f"{self._name}: User-activated 8°C mode - treating as manual override")
             return
 
         # Auto mode is always considered manual override (doesn't fit preset system)

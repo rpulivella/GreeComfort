@@ -14,7 +14,7 @@ from homeassistant.components.number import (
     NumberMode,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -142,6 +142,20 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         mode=NumberMode.BOX,
         value_fn=lambda device: getattr(device, "_target_tolerance", 0.5),
         set_fn=lambda device, value: setattr(device, "_target_tolerance", value),
+        entity_category=EntityCategory.CONFIG,
+        restore_state=True,
+    ),
+    GreeNumberEntityDescription(
+        property_key="stht_smart_threshold_minutes",
+        translation_key="stht_smart_threshold_minutes",
+        icon="mdi:timer-outline",
+        native_min_value=15,
+        native_max_value=480,
+        native_step=15,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        mode=NumberMode.SLIDER,
+        value_fn=lambda device: getattr(device, "_stht_smart_threshold_minutes", 60),
+        set_fn=lambda device, value: setattr(device, "_stht_smart_threshold_minutes", value),
         entity_category=EntityCategory.CONFIG,
         restore_state=True,
     ),
