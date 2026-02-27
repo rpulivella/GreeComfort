@@ -1052,10 +1052,18 @@ class GreeClimate(ClimateEntity):
             elapsed_s = None
             if self._preset_active_since:
                 elapsed_s = (datetime.now() - self._preset_active_since).total_seconds()
+            threshold_s = self._stht_smart_threshold_minutes * 60
+            if self._stht_smart_active:
+                remaining_min = 0
+            elif elapsed_s is not None:
+                remaining_min = round(max(0.0, (threshold_s - elapsed_s) / 60), 1)
+            else:
+                remaining_min = self._stht_smart_threshold_minutes
             attributes["stht_smart"] = {
                 "active": self._stht_smart_active,
                 "preset_active_since": self._preset_active_since.isoformat() if self._preset_active_since else None,
                 "elapsed_minutes": round(elapsed_s / 60, 1) if elapsed_s is not None else None,
+                "remaining_minutes": remaining_min,
                 "threshold_minutes": self._stht_smart_threshold_minutes,
             }
 

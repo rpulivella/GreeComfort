@@ -215,7 +215,10 @@ class GreeSwitchEntity(GreeEntity, SwitchEntity, RestoreEntity):
         description: GreeSwitchEntityDescription,
     ) -> None:
         super().__init__(hass, entry, description)
-        self._attr_is_on = bool(self.native_value)
+        if description.restore_state and description.value_fn:
+            self._attr_is_on = bool(description.value_fn(self._device))
+        else:
+            self._attr_is_on = bool(self.native_value)
         self._restored = False
 
     async def async_added_to_hass(self):
