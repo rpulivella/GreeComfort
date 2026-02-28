@@ -143,8 +143,8 @@ async def create_gree_device(hass, config):
 
 # from the remote control and gree app
 
-# update() interval - poll frequently for accurate idle detection
-SCAN_INTERVAL = timedelta(seconds=2)
+# update() interval - poll at 10s for accurate idle detection without hammering the device
+SCAN_INTERVAL = timedelta(seconds=10)
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -358,7 +358,7 @@ class GreeClimate(ClimateEntity):
         self._stht_smart_active = False
         self._preset_active_since = None
 
-        # Temperature history for idle detection (30 seconds at 2-second polling)
+        # Temperature history for idle detection (150 seconds at 10-second polling)
         self._temp_history = deque(maxlen=15)
 
         # Storage for preset persistence
@@ -878,7 +878,7 @@ class GreeClimate(ClimateEntity):
             self._last_hvac_action = HVACAction.IDLE
             return HVACAction.IDLE  # Not enough data yet
 
-        # Use last 10 readings for slope calculation (20 second window at 2s polling)
+        # Use last 10 readings for slope calculation (100 second window at 10s polling)
         history = list(self._temp_history)[-10:]
         slope = self._linear_regression_slope(history)
 
