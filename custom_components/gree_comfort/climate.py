@@ -1303,41 +1303,31 @@ class GreeClimate(ClimateEntity):
         if not self._stht_smart_enabled:
             return
 
-        # Preset/mode eligibility — Pow is intentionally excluded.
-        # Once smart mode is active the unit will be idle (Pow=0 or compressor off) most of
-        # the time because the room is well above 8°C. That is the correct outcome of frost
-        # protection working; deactivating on Pow=0 would be circular.
+        # Only care about preset and mode — not device power state.
+        # We count wall-clock time from when the preset was set, not compressor runtime.
         in_eligible_preset = (
             self._preset_mode in (PRESET_AWAY, PRESET_SLEEP)
             and self.hvac_mode == HVACMode.HEAT
         )
 
-        # If already active: only deactivate on a genuine mode/preset change, not Pow state
         if self._stht_smart_active:
             if not in_eligible_preset:
                 _LOGGER.info(f"{self._name}: Preset/mode changed - deactivating smart 8°C mode")
                 self._stht_smart_active = False
                 await self.SyncState({"StHt": 0})
                 await self._save_persistent_state()
-            elif self._acOptions.get("Pow") == 1 and self._acOptions.get("StHt") != 1:
-                # Unit is on but StHt was cleared externally — restart the timer
+            elif self._acOptions.get("StHt") != 1:
                 _LOGGER.info(f"{self._name}: Smart 8°C was turned off externally - restarting timer")
                 self._stht_smart_active = False
                 self._preset_active_since = datetime.now()
                 await self._save_persistent_state()
             return
 
-        # Not yet active: reset timer if preset/mode changed
         if not in_eligible_preset:
             if self._preset_active_since is not None:
                 self._preset_active_since = None
             return
 
-        # Pow=0 only blocks timer START — once running, compressor cycles don't reset it
-        if self._acOptions.get("Pow") != 1 and self._preset_active_since is None:
-            return
-
-        # Start timer if not already running
         if self._preset_active_since is None:
             self._preset_active_since = datetime.now()
             _LOGGER.info(f"{self._name}: Smart 8°C timer started for {self._preset_mode}+heat preset")
@@ -1347,7 +1337,6 @@ class GreeClimate(ClimateEntity):
         if self._acOptions.get("StHt") == 1:
             return
 
-        # Check if threshold elapsed
         elapsed = (datetime.now() - self._preset_active_since).total_seconds()
         threshold = self._stht_smart_threshold_minutes * 60
         if elapsed >= threshold:
