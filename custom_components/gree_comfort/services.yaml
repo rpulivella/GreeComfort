@@ -1,0 +1,24 @@
+set_scheduled_preset:
+  name: Set Scheduled Preset
+  description: >
+    Stores the current scheduled preset. Applies it immediately unless a manual
+    override is active or the unit is in away mode.
+  fields:
+    preset_mode:
+      name: Preset Mode
+      description: The preset to schedule (home, sleep, away, or off).
+      required: true
+      selector:
+        select:
+          options:
+            - home
+            - sleep
+            - away
+            - off
+    entity_id:
+      name: Entity ID
+      description: Climate entity to target. Omit to apply to all Gree Comfort devices.
+      required: false
+      selector:
+        entity:
+          domain: climate
