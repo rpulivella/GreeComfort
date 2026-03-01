@@ -1327,10 +1327,14 @@ class GreeClimate(ClimateEntity):
                 await self._save_persistent_state()
             return
 
-        # Not yet active: require unit to be on before starting/continuing the timer
-        if not in_eligible_preset or self._acOptions.get("Pow") != 1:
+        # Not yet active: reset timer if preset/mode changed
+        if not in_eligible_preset:
             if self._preset_active_since is not None:
                 self._preset_active_since = None
+            return
+
+        # Pow=0 only blocks timer START — once running, compressor cycles don't reset it
+        if self._acOptions.get("Pow") != 1 and self._preset_active_since is None:
             return
 
         # Start timer if not already running
