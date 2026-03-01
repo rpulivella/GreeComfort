@@ -357,6 +357,7 @@ class GreeClimate(ClimateEntity):
         self._stht_smart_threshold_minutes = 60
         self._stht_smart_active = False
         self._preset_active_since = None
+        self._scheduled_preset = None  # What the time-based schedule says right now
 
         # Temperature history for idle detection (150 seconds at 10-second polling)
         self._temp_history = deque(maxlen=15)
@@ -1025,6 +1026,10 @@ class GreeClimate(ClimateEntity):
         # Add hvac_action
         attributes["hvac_action"] = self.hvac_action
 
+        # Scheduled preset (what the time-based automation currently says)
+        if self._scheduled_preset is not None:
+            attributes["scheduled_preset"] = self._scheduled_preset
+
         # Add preset temperatures (rounded to 1 decimal place)
         rounded_temps = {}
         for preset, temps in self._preset_temps.items():
@@ -1362,6 +1367,7 @@ class GreeClimate(ClimateEntity):
             "last_non_auto_hvac_mode": last_mode_str,
             "preset_active_since": self._preset_active_since.isoformat() if self._preset_active_since else None,
             "stht_smart_active": self._stht_smart_active,
+            "scheduled_preset": self._scheduled_preset,
         })
 
     async def async_set_preset_mode(self, preset_mode):
@@ -1396,23 +1402,41 @@ class GreeClimate(ClimateEntity):
 
         self.async_write_ha_state()
 
-    async def async_clear_manual_override(self):
-        """Clear manual override and re-apply preset temperature."""
-        _LOGGER.info(f"{self._name}: Clearing manual override")
+    async def set_scheduled_preset(self, preset_mode: str) -> None:
+        """Store the scheduled preset. Apply immediately unless overridden or away."""
+        _LOGGER.info(f"{self._name}: Scheduled preset set to {preset_mode}")
+        self._scheduled_preset = preset_mode
+        await self._save_persistent_state()
 
-        # If in Auto mode, switch to last non-Auto mode (Heat/Cool) for preset application
+        if self._manual_override:
+            _LOGGER.info(f"{self._name}: Manual override active — storing scheduled preset without applying")
+            self.async_write_ha_state()
+            return
+
+        if self._preset_mode == PRESET_AWAY:
+            _LOGGER.info(f"{self._name}: Away mode active — storing scheduled preset without applying")
+            self.async_write_ha_state()
+            return
+
+        await self.async_set_preset_mode(preset_mode)
+
+    async def async_resume_normal(self) -> None:
+        """Resume the scheduled preset, clearing any manual override or away mode."""
+        _LOGGER.info(f"{self._name}: Resuming normal schedule")
+
+        target_preset = self._scheduled_preset or self._preset_mode
+        if target_preset in (PRESET_NONE, PRESET_OFF):
+            return
+
+        # If in Auto mode, switch to last non-Auto mode so preset temp can be applied
         if self.hvac_mode == HVACMode.AUTO:
             target_mode = self._last_non_auto_hvac_mode
             _LOGGER.info(f"{self._name}: Switching from Auto to {target_mode} to apply preset")
             await self.async_set_hvac_mode(target_mode)
 
-        self._set_manual_override(False)
-
-        # Re-apply preset temperature if we have an active preset
-        if self._preset_mode != PRESET_NONE:
-            await self._apply_preset_temperature()
-
-        self.async_write_ha_state()
+        # async_set_preset_mode clears manual_override, deactivates smart 8°C,
+        # applies the preset temperature, and saves state
+        await self.async_set_preset_mode(target_preset)
 
     def _set_manual_override(self, value: bool):
         """Set manual override and notify listeners."""
@@ -1466,6 +1490,9 @@ class GreeClimate(ClimateEntity):
                 except (ValueError, TypeError):
                     self._preset_active_since = None
             _LOGGER.info(f"{self._name}: Restored smart 8°C state: active={self._stht_smart_active}, timer_start={self._preset_active_since}")
+
+            self._scheduled_preset = data.get("scheduled_preset")
+            _LOGGER.info(f"{self._name}: Restored scheduled preset: {self._scheduled_preset}")
 
         # Fetch current device state (reads temp, mode, etc. from physical unit)
         await self.async_update()

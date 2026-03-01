@@ -113,6 +113,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug("Setting up config entry %s with data: %s", entry.entry_id, combined_data)
     entry.async_on_unload(entry.add_update_listener(_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register domain service (guarded so it's only registered once)
+    if not hass.services.has_service(DOMAIN, "set_scheduled_preset"):
+        async def handle_set_scheduled_preset(call):
+            entity_id = call.data.get("entity_id")
+            preset_mode = call.data["preset_mode"]
+            for entry_data in hass.data[DOMAIN].values():
+                d = entry_data["device"]
+                if entity_id is None or getattr(d, "entity_id", None) == entity_id:
+                    await d.set_scheduled_preset(preset_mode)
+
+        hass.services.async_register(
+            DOMAIN,
+            "set_scheduled_preset",
+            handle_set_scheduled_preset,
+            schema=vol.Schema({
+                vol.Optional("entity_id"): cv.entity_id,
+                vol.Required("preset_mode"): vol.In(["home", "sleep", "away", "off"]),
+            }),
+        )
+
     return True
 
 

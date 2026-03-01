@@ -296,7 +296,7 @@
     "button": {
       "clear_manual_override": {
         "name": "Clear Manual Override",
-        "description": "Clears manual temperature override and reapplies the current preset temperature."
+        "description": "Resumes the scheduled preset, clearing any manual temperature override or away mode."
       }
     },
     "switch": {

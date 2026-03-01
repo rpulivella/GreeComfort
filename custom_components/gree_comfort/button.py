@@ -31,7 +31,7 @@ BUTTONS: tuple[GreeButtonEntityDescription, ...] = (
         property_key="clear_manual_override",
         translation_key="clear_manual_override",
         icon="mdi:restore",
-        press_fn=lambda device: device.async_clear_manual_override(),
+        press_fn=lambda device: device.async_resume_normal(),
     ),
 )
 
