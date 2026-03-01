@@ -14,7 +14,7 @@ set_scheduled_preset:
             - home
             - sleep
             - away
-            - off
+            - "off"
     entity_id:
       name: Entity ID
       description: Climate entity to target. Omit to apply to all Gree Comfort devices.
