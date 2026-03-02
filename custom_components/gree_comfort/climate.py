@@ -1317,10 +1317,9 @@ class GreeClimate(ClimateEntity):
                 await self.SyncState({"StHt": 0})
                 await self._save_persistent_state()
             elif self._acOptions.get("StHt") != 1:
-                _LOGGER.info(f"{self._name}: Smart 8°C was turned off externally - restarting timer")
-                self._stht_smart_active = False
-                self._preset_active_since = datetime.now()
-                await self._save_persistent_state()
+                # Device cleared StHt (firmware behaviour) — re-apply to maintain frost protection
+                _LOGGER.info(f"{self._name}: StHt cleared by device - re-applying smart 8°C")
+                await self.SyncState({"StHt": 1})
             return
 
         if not in_eligible_preset:
