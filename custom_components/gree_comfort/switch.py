@@ -197,10 +197,12 @@ SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
     ),
     GreeSwitchEntityDescription(
         property_key="schedule_auto_release",
+        translation_key="schedule_auto_release",
         icon="mdi:calendar-clock",
         value_fn=lambda device: getattr(device, "_schedule_auto_release", False),
         set_fn=_set_schedule_auto_release,
         restore_state=True,
+        entity_category=EntityCategory.CONFIG,
     ),
 )
 
