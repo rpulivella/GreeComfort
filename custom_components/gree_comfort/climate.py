@@ -359,6 +359,17 @@ class GreeClimate(ClimateEntity):
         self._preset_active_since = None
         self._scheduled_preset = None  # What the time-based schedule says right now
 
+        # Schedule auto-release: when enabled, a scheduled preset change clears any active
+        # manual override and applies the preset immediately (as if the button were pressed).
+        # Default is False — override is always respected unless the user explicitly clears it.
+        #
+        # TODO(future): Consider replacing this toggle with a counter (0–6) where the value
+        # represents how many scheduled preset changes are allowed to be skipped before the
+        # override is automatically cleared. 0 = never auto-clear (current default behavior),
+        # 1 = same as this toggle "on", 2–6 = allow N skips before yielding to the schedule.
+        # This would give forgetful-household tolerance without fully surrendering manual control.
+        self._schedule_auto_release = False
+
         # Temperature history for idle detection (150 seconds at 10-second polling)
         self._temp_history = deque(maxlen=15)
 
@@ -1401,6 +1412,13 @@ class GreeClimate(ClimateEntity):
         await self._save_persistent_state()
 
         if self._manual_override:
+            if self._schedule_auto_release:
+                _LOGGER.info(
+                    f"{self._name}: Manual override active but schedule_auto_release is on — "
+                    f"auto-releasing override and applying scheduled preset '{preset_mode}'"
+                )
+                await self.async_resume_normal()
+                return
             _LOGGER.info(f"{self._name}: Manual override active — storing scheduled preset without applying")
             self.async_write_ha_state()
             return

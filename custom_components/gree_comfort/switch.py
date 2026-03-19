@@ -96,6 +96,10 @@ async def _set_stht_smart(device, value: bool) -> None:
         await device.SyncState({"StHt": 0})
 
 
+async def _set_schedule_auto_release(device, value: bool) -> None:
+    setattr(device, "_schedule_auto_release", value)
+
+
 SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
     GreeSwitchEntityDescription(
         property_key="xfan",
@@ -190,6 +194,13 @@ SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
         set_fn=_set_stht_smart,
         restore_state=True,
         entity_category=EntityCategory.CONFIG,
+    ),
+    GreeSwitchEntityDescription(
+        property_key="schedule_auto_release",
+        icon="mdi:calendar-clock",
+        value_fn=lambda device: getattr(device, "_schedule_auto_release", False),
+        set_fn=_set_schedule_auto_release,
+        restore_state=True,
     ),
 )
 

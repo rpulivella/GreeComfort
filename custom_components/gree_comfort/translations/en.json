@@ -351,6 +351,10 @@
       "stht_smart": {
         "name": "Smart 8°C Mode",
         "description": "When enabled, automatically activates 8°C frost protection after the Away or Sleep preset has been active in heating mode for the configured threshold. The manual 8°C Heat switch continues to work independently."
+      },
+      "schedule_auto_release": {
+        "name": "Auto-release Override on Schedule",
+        "description": "When enabled, a scheduled preset change will automatically clear any active manual override and apply the scheduled preset immediately — as if the 'Clear Override' button were pressed. Default is off, meaning the schedule is silently stored but not applied while an override is active."
       }
     }
   }
