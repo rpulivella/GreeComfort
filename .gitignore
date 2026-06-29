@@ -207,3 +207,6 @@ venv/
 
 # Workarea - scratch work, test scripts, screenshots, plans, etc.
 workarea/
+
+# Reference copy of upstream integration (kept locally for diffing only)
+reference-original/

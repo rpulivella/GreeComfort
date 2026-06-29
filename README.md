@@ -8,13 +8,9 @@ Enhanced Gree HVAC integration with comfort modes, manual override tracking, and
 GreeComfort/
 ├── custom_components/
 │   └── gree_comfort/          # Working integration (ready to install)
-├── reference-original/
-│   └── gree/                  # Original RobHofmann integration (for reference)
 ├── docs/
 │   ├── README.md              # Full feature documentation
 │   └── IMPLEMENTATION_PLAN.md # Technical implementation details
-├── .gitignore                 # Git ignore rules
-├── install.sh                 # Installation script
 └── README.md                  # This file
 ```
 
@@ -60,22 +56,11 @@ cp -r custom_components/gree_comfort /config/custom_components/
 
 Full documentation available in [`docs/README.md`](docs/README.md)
 
-## Changelog
+## Releases
 
-### 3.3.2-comfort-2 (2026-02-23)
-- `88b75be` — Add smart 8°C mode for away/sleep heat presets
-- `2bb2efe` — Fix 8°C mode reporting as 8°F when HA units are Fahrenheit
-
-### 3.3.2-comfort-1 (2026-02-01)
-- `670bf3a` — Initial comfort mode release
-
-## Version
-
-- **Current**: 3.3.2-comfort-2 (2026-02-23)
-- **Base**: RobHofmann/HomeAssistant-GreeClimateComponent v3.3.2
-- **Domain**: `gree_comfort` (separate from HACS version)
+See [GitHub Releases](https://github.com/rpulivella/GreeComfort/releases) for the changelog.
 
 ## Credits
 
-- **Original Integration**: [RobHofmann](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent)
-- **Comfort Mode Features**: Custom modifications
+- **Original Integration**: [RobHofmann/HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent) v3.3.2
+- **Domain**: `gree_comfort` (distinct from the HACS `gree` domain — both can coexist)
