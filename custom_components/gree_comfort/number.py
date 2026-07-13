@@ -273,10 +273,14 @@ class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
                 try:
                     restored_value = float(last_state.state)
 
-                    # Migrate old Fahrenheit values to Celsius (stored values > 30 are assumed Fahrenheit)
-                    # Compare against raw Celsius max from entity_description, not the property
-                    if (self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS and
-                        restored_value > MAX_TEMP_C):
+                    if (self._use_fahrenheit and
+                            self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS and
+                            self._is_delta_temp()):
+                        # Stored value is in °F-delta units; convert back to °C-delta for internal storage.
+                        restored_value = restored_value * 5.0 / 9.0
+                    elif (self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS and
+                            restored_value > MAX_TEMP_C):
+                        # Migrate old absolute Fahrenheit values to Celsius (stored values > 30).
                         restored_value = (restored_value - 32.0) * 5.0 / 9.0
 
                     # Validate against raw Celsius values from entity_description
