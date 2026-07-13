@@ -31,6 +31,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.const import UnitOfTemperature
+from homeassistant.util import dt as dt_util
 
 # Local imports
 from .const import (
@@ -148,6 +149,9 @@ SCAN_INTERVAL = timedelta(seconds=10)
 # Eco Shutoff: seconds the auxiliary sensor may be unavailable while unit is off before
 # power is restored as a safety measure.
 ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
+# Eco Shutoff: max age of sensor's last_reported timestamp before treating it as stale.
+# Must exceed the sensor's max reporting interval (3600s); 75 min gives one full cycle of headroom.
+ECO_SHUTOFF_SENSOR_STALE_S = 75 * 60  # 4500s
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -1221,7 +1225,16 @@ class GreeClimate(ClimateEntity):
 
         # --- Sensor availability check ---
         sensor_state = self.hass.states.get(self._eco_shutoff_sensor)
-        if sensor_state is None or sensor_state.state in ("unavailable", "unknown"):
+        sensor_stale = False
+        if sensor_state is not None and sensor_state.state not in ("unavailable", "unknown"):
+            last_reported = getattr(sensor_state, "last_reported", sensor_state.last_updated)
+            age_s = (dt_util.utcnow() - last_reported).total_seconds()
+            if age_s > ECO_SHUTOFF_SENSOR_STALE_S:
+                sensor_stale = True
+                _LOGGER.warning(
+                    f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago — treating as stale"
+                )
+        if sensor_state is None or sensor_state.state in ("unavailable", "unknown") or sensor_stale:
             self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
             if self._eco_shutoff_active and self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
                 _LOGGER.warning(
