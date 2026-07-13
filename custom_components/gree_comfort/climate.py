@@ -460,7 +460,10 @@ class GreeClimate(ClimateEntity):
     def UpdateHAHvacMode(self):
         # Sync current HVAC operation mode to HA
         if self._acOptions["Pow"] == 0:
-            self._hvac_mode = HVACMode.OFF
+            if not self._eco_shutoff_active:
+                self._hvac_mode = HVACMode.OFF
+            # else: eco shutoff owns this power-off — preserve mode so re-engage logic and
+            # hvac_action can run correctly; the unit is idle, not user-off
         else:
             for key, value in MODES_MAPPING.get("Mod").items():
                 if value == (self._acOptions["Mod"]):
@@ -1491,6 +1494,11 @@ class GreeClimate(ClimateEntity):
 
             self._eco_shutoff_active = data.get("eco_shutoff_active", False)
             _LOGGER.info(f"{self._name}: Restored eco_shutoff_active: {self._eco_shutoff_active}")
+            if self._eco_shutoff_active and self._last_non_auto_hvac_mode not in (HVACMode.OFF, None):
+                # Eco shutoff was holding the unit off at shutdown; prime hvac_mode so the
+                # mode guard in _check_eco_shutoff passes on first poll and re-engage can run.
+                self._hvac_mode = self._last_non_auto_hvac_mode
+                _LOGGER.info(f"{self._name}: Primed hvac_mode to {self._hvac_mode} for eco shutoff re-evaluate")
 
         # Fetch current device state (reads temp, mode, etc. from physical unit)
         await self.async_update()
