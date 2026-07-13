@@ -105,7 +105,6 @@ async def _set_eco_shutoff_enabled(device, value: bool) -> None:
     if not value and getattr(device, "_eco_shutoff_active", False):
         # Feature disabled while holding unit off — restore power immediately
         setattr(device, "_eco_shutoff_active", False)
-        device._eco_shutoff_temp_history.clear()
         await device.SyncState({"Pow": 1})
 
 

@@ -30,6 +30,7 @@ from homeassistant.const import (
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.const import UnitOfTemperature
 from homeassistant.util import dt as dt_util
 
@@ -363,12 +364,11 @@ class GreeClimate(ClimateEntity):
         self._eco_shutoff_enabled = False
         self._eco_shutoff_active = False
         self._eco_shutoff_sensor_missing_s = 0
-        # Capacity for max trend window (15 min × 6 readings/min at 10s poll)
-        self._eco_shutoff_temp_history = deque(maxlen=90)
+        self._eco_shutoff_satisfied_since: datetime | None = None
         # Tunable parameters (defaults; overridden by number entity restore)
         self._eco_shutoff_satisfied_margin = 1.5   # °C past setpoint before shutoff
         self._eco_shutoff_reengage_delta = 0.5     # °C from setpoint before power-on
-        self._eco_shutoff_trend_window_minutes = 5  # minutes of stable readings required
+        self._eco_shutoff_trend_window_minutes = 5  # minutes room must stay satisfied
 
         # Storage for preset persistence
         self._storage = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{name}")
@@ -1235,21 +1235,37 @@ class GreeClimate(ClimateEntity):
                     f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago — treating as stale"
                 )
         if sensor_state is None or sensor_state.state in ("unavailable", "unknown") or sensor_stale:
+            self._eco_shutoff_satisfied_since = None
             self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
-            if self._eco_shutoff_active and self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
-                _LOGGER.warning(
-                    f"{self._name}: Eco Shutoff sensor unavailable for "
-                    f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
-                )
-                await self.SyncState({"Pow": 1})
-                self._eco_shutoff_active = False
-                self._eco_shutoff_temp_history.clear()
-                await self._save_persistent_state()
-                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
-                async_dispatcher_send(self.hass, signal, False)
+            if self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
+                if self._eco_shutoff_enabled:
+                    ir.async_create_issue(
+                        self.hass,
+                        DOMAIN,
+                        f"eco_shutoff_sensor_{self._mac_addr}",
+                        is_fixable=False,
+                        severity=ir.IssueSeverity.WARNING,
+                        translation_key="eco_shutoff_sensor_unavailable",
+                        translation_placeholders={
+                            "device_name": self._name,
+                            "sensor_id": self._eco_shutoff_sensor or "",
+                        },
+                    )
+                if self._eco_shutoff_active:
+                    _LOGGER.warning(
+                        f"{self._name}: Eco Shutoff sensor unavailable for "
+                        f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
+                    )
+                    await self.SyncState({"Pow": 1})
+                    self._eco_shutoff_active = False
+                    await self._save_persistent_state()
+                    signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                    async_dispatcher_send(self.hass, signal, False)
             return
 
+        # Sensor is healthy — clear any outstanding repair issue and reset counter
         self._eco_shutoff_sensor_missing_s = 0
+        ir.async_delete_issue(self.hass, DOMAIN, f"eco_shutoff_sensor_{self._mac_addr}")
 
         # --- Read auxiliary temperature in °C ---
         try:
@@ -1259,7 +1275,6 @@ class GreeClimate(ClimateEntity):
         sensor_unit = sensor_state.attributes.get("unit_of_measurement", "°C")
         if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
             aux_temp = (aux_temp - 32.0) * 5.0 / 9.0
-        self._eco_shutoff_temp_history.append(aux_temp)
 
         # --- Effective setpoint ---
         effective_setpoint = 8.0 if self._stht_smart_active else self._target_temperature
@@ -1272,24 +1287,25 @@ class GreeClimate(ClimateEntity):
             satisfied = aux_temp <= (effective_setpoint - self._eco_shutoff_satisfied_margin)
             needs_action = aux_temp >= (effective_setpoint + self._eco_shutoff_reengage_delta)
 
-        # --- Trend confirmation for shutoff ---
-        required_readings = int(self._eco_shutoff_trend_window_minutes * 6)
-        history = list(self._eco_shutoff_temp_history)
-        trend_confirmed = False
-        if len(history) >= required_readings:
-            slope = self._linear_regression_slope(history[-required_readings:])
-            if self.hvac_mode == HVACMode.HEAT:
-                trend_confirmed = slope <= 0.02
-            else:
-                trend_confirmed = slope >= -0.02
+        # --- Time-based satisfaction window for shutoff ---
+        now = dt_util.utcnow()
+        if satisfied:
+            if self._eco_shutoff_satisfied_since is None:
+                self._eco_shutoff_satisfied_since = now
+            elapsed_s = (now - self._eco_shutoff_satisfied_since).total_seconds()
+            time_confirmed = elapsed_s >= self._eco_shutoff_trend_window_minutes * 60
+        else:
+            self._eco_shutoff_satisfied_since = None
+            time_confirmed = False
 
         is_on = self._acOptions and self._acOptions.get("Pow") == 1
 
         if not self._eco_shutoff_active:
-            if is_on and satisfied and trend_confirmed:
+            if is_on and satisfied and time_confirmed:
                 _LOGGER.info(
                     f"{self._name}: Eco Shutoff — satisfied by {aux_temp:.1f}°C "
-                    f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C), cutting power"
+                    f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C) "
+                    f"for {elapsed_s / 60:.1f} min, cutting power"
                 )
                 await self.SyncState({"Pow": 0})
                 self._eco_shutoff_active = True
@@ -1304,7 +1320,6 @@ class GreeClimate(ClimateEntity):
                 )
                 await self.SyncState({"Pow": 1})
                 self._eco_shutoff_active = False
-                self._eco_shutoff_temp_history.clear()
                 await self._save_persistent_state()
                 signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
                 async_dispatcher_send(self.hass, signal, False)
