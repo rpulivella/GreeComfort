@@ -284,19 +284,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_TEMP_SENSOR_OFFSET,
                     description={"suggested_value": options.get(CONF_TEMP_SENSOR_OFFSET)},
                 ): vol.Any(None, bool),
-                # Cycle management options (config-only, no number entities)
-                vol.Optional(
-                    "enforce_off_cycle",
-                    default=options.get("enforce_off_cycle", False),
-                ): bool,
-                vol.Optional(
-                    "min_off_time_seconds",
-                    default=options.get("min_off_time_seconds", 180),
-                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=360)),
-                vol.Optional(
-                    "min_cycle_duration_seconds",
-                    default=options.get("min_cycle_duration_seconds", 300),
-                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=600)),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

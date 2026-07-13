@@ -76,11 +76,7 @@
           "preset_sleep_heat": "Sleep - Heat Temperature",
           "preset_sleep_cool": "Sleep - Cool Temperature",
           "preset_away_heat": "Away - Heat Temperature",
-          "preset_away_cool": "Away - Cool Temperature",
-          "target_tolerance": "Target Tolerance",
-          "enforce_off_cycle": "Enforce Cycle Management",
-          "min_off_time_seconds": "Minimum Off Time (seconds)",
-          "min_cycle_duration_seconds": "Minimum Cycle Duration (seconds)"
+          "preset_away_cool": "Away - Cool Temperature"
         }
       }
     }
@@ -224,9 +220,17 @@
         "name": "Away - Cool Temperature",
         "description": "Target temperature for Away preset in cooling mode."
       },
-      "target_tolerance": {
-        "name": "Target Tolerance (±)",
-        "description": "Temperature band for target satisfaction (target reached). Used by cycle management to determine when unit can turn off. NOT used for idle detection (compressor state)."
+      "eco_shutoff_satisfied_margin": {
+        "name": "Eco Shutoff — Satisfied Margin",
+        "description": "How many degrees past the setpoint the room must reach before Eco Shutoff cuts power. Larger values prevent rapid cycling."
+      },
+      "eco_shutoff_reengage_delta": {
+        "name": "Eco Shutoff — Re-engage Delta",
+        "description": "How many degrees from the setpoint the room must drift before Eco Shutoff restores power."
+      },
+      "eco_shutoff_trend_window_minutes": {
+        "name": "Eco Shutoff — Trend Window",
+        "description": "Minutes of stable temperature readings required to confirm satisfaction before cutting power. Re-engage is always immediate."
       },
       "stht_smart_threshold_minutes": {
         "name": "Smart 8°C Threshold",
@@ -234,9 +238,9 @@
       }
     },
     "select": {
-      "external_temperature_sensor": {
-        "name": "External Temperature Sensor",
-        "description": "Select a temperature sensor entity to use instead of the built-in AC sensor. Choose 'None' to use the built-in sensor."
+      "eco_shutoff_sensor": {
+        "name": "Eco Shutoff Temperature Sensor",
+        "description": "Temperature sensor used exclusively by Eco Shutoff. Must be an external sensor — the built-in AC sensor goes dark when the unit is off. Choose 'None' to make Eco Shutoff unavailable."
       },
       "preset_mode": {
         "name": "Comfort Mode",
@@ -282,15 +286,23 @@
         "name": "Quiet Mode",
         "description": "Quiet mode state (0=off, 1=on)"
       },
+      "eco_shutoff_temperature": {
+        "name": "Eco Shutoff Temperature",
+        "description": "Current temperature reading from the configured Eco Shutoff auxiliary sensor."
+      },
       "power_save_state": {
-        "name": "Power Save State",
-        "description": "Power save mode state"
+        "name": "Gree Power Save State",
+        "description": "Gree firmware built-in power save mode state (SvSt). Separate from Eco Shutoff."
       }
     },
     "binary_sensor": {
       "manual_override": {
         "name": "Manual Override",
         "description": "Indicates when temperature has been manually adjusted away from comfort mode setting"
+      },
+      "eco_shutoff_active": {
+        "name": "Eco Shutoff Active",
+        "description": "On while Eco Shutoff is holding the unit powered off because the room temperature is satisfied."
       }
     },
     "button": {
@@ -313,8 +325,8 @@
         "description": "Enables or disables the Health mode for air ionization and purification."
       },
       "powersave": {
-        "name": "Power Save",
-        "description": "Enables or disables the power saving mode for energy efficiency. Only available in cooling mode."
+        "name": "Gree Power Save",
+        "description": "Gree firmware built-in power saving mode (SvSt). Reduces compressor output for efficiency in cooling mode. Separate from Eco Shutoff."
       },
       "eightdegheat": {
         "name": "8°C Heat",
@@ -355,6 +367,10 @@
       "schedule_auto_release": {
         "name": "Auto-Release Override on Preset Change",
         "description": "When enabled, a scheduled preset change will automatically clear any active manual override and apply the scheduled preset immediately — as if the 'Clear Override' button were pressed. Default is off, meaning the schedule is silently stored but not applied while an override is active."
+      },
+      "eco_shutoff_enabled": {
+        "name": "Eco Shutoff",
+        "description": "Automatically powers the unit off when the room temperature has been satisfied and a trend confirms it will stay that way. Powers back on when temperature drifts. Requires an Eco Shutoff Temperature Sensor to be configured."
       }
     }
   }

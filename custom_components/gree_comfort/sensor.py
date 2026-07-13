@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    UnitOfTemperature,
 )
 
 
@@ -23,6 +24,29 @@ from .const import DOMAIN
 from .entity import GreeEntity, GreeEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _eco_shutoff_temp_value(device) -> float | None:
+    """Read temperature from the configured Eco Shutoff auxiliary sensor."""
+    sensor_id = getattr(device, "_eco_shutoff_sensor", None)
+    if not sensor_id:
+        return None
+    state = device.hass.states.get(sensor_id)
+    if state is None or state.state in ("unavailable", "unknown"):
+        return None
+    try:
+        val = float(state.state)
+    except (ValueError, TypeError):
+        return None
+    # Convert to match the climate entity's display unit
+    sensor_unit = state.attributes.get("unit_of_measurement", "°C")
+    if device.temperature_unit == UnitOfTemperature.CELSIUS:
+        if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
+            val = (val - 32.0) * 5.0 / 9.0
+    else:
+        if sensor_unit not in (UnitOfTemperature.FAHRENHEIT, "°F"):
+            val = val * 9.0 / 5.0 + 32.0
+    return round(val, 1)
 
 
 @dataclass
@@ -92,6 +116,15 @@ SENSORS: tuple[GreeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda device: device._acOptions.get('Quiet') if device._acOptions else None,
         available_fn=lambda device: device.available,
+    ),
+    GreeSensorEntityDescription(
+        property_key="eco_shutoff_temperature",
+        translation_key="eco_shutoff_temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        value_fn=_eco_shutoff_temp_value,
+        available_fn=lambda device: bool(getattr(device, "_eco_shutoff_sensor", None)),
     ),
     GreeSensorEntityDescription(
         property_key="power_save_state",

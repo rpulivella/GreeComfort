@@ -100,6 +100,15 @@ async def _set_schedule_auto_release(device, value: bool) -> None:
     setattr(device, "_schedule_auto_release", value)
 
 
+async def _set_eco_shutoff_enabled(device, value: bool) -> None:
+    setattr(device, "_eco_shutoff_enabled", value)
+    if not value and getattr(device, "_eco_shutoff_active", False):
+        # Feature disabled while holding unit off — restore power immediately
+        setattr(device, "_eco_shutoff_active", False)
+        device._eco_shutoff_temp_history.clear()
+        await device.SyncState({"Pow": 1})
+
+
 SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
     GreeSwitchEntityDescription(
         property_key="xfan",
@@ -203,6 +212,16 @@ SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
         set_fn=_set_schedule_auto_release,
         restore_state=True,
         entity_category=EntityCategory.CONFIG,
+    ),
+    GreeSwitchEntityDescription(
+        property_key="eco_shutoff_enabled",
+        translation_key="eco_shutoff_enabled",
+        icon="mdi:power-sleep",
+        value_fn=lambda device: getattr(device, "_eco_shutoff_enabled", False),
+        set_fn=_set_eco_shutoff_enabled,
+        restore_state=True,
+        entity_category=EntityCategory.CONFIG,
+        available_fn=lambda device: bool(getattr(device, "_eco_shutoff_sensor", None)),
     ),
 )
 

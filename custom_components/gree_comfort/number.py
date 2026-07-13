@@ -132,16 +132,44 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         restore_state=True,
     ),
     GreeNumberEntityDescription(
-        property_key="target_tolerance",
-        translation_key="target_tolerance",
-        icon="mdi:thermometer-lines",
-        native_min_value=0.1,
+        property_key="eco_shutoff_satisfied_margin",
+        translation_key="eco_shutoff_satisfied_margin",
+        icon="mdi:thermometer-chevron-up",
+        native_min_value=1.0,
         native_max_value=5.0,
+        native_step=0.5,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        mode=NumberMode.SLIDER,
+        value_fn=lambda device: getattr(device, "_eco_shutoff_satisfied_margin", 1.5),
+        set_fn=lambda device, value: setattr(device, "_eco_shutoff_satisfied_margin", value),
+        entity_category=EntityCategory.CONFIG,
+        restore_state=True,
+    ),
+    GreeNumberEntityDescription(
+        property_key="eco_shutoff_reengage_delta",
+        translation_key="eco_shutoff_reengage_delta",
+        icon="mdi:thermometer-chevron-down",
+        native_min_value=0.3,
+        native_max_value=3.0,
         native_step=0.1,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        mode=NumberMode.BOX,
-        value_fn=lambda device: getattr(device, "_target_tolerance", 0.5),
-        set_fn=lambda device, value: setattr(device, "_target_tolerance", value),
+        mode=NumberMode.SLIDER,
+        value_fn=lambda device: getattr(device, "_eco_shutoff_reengage_delta", 0.5),
+        set_fn=lambda device, value: setattr(device, "_eco_shutoff_reengage_delta", value),
+        entity_category=EntityCategory.CONFIG,
+        restore_state=True,
+    ),
+    GreeNumberEntityDescription(
+        property_key="eco_shutoff_trend_window_minutes",
+        translation_key="eco_shutoff_trend_window_minutes",
+        icon="mdi:chart-line",
+        native_min_value=3,
+        native_max_value=15,
+        native_step=1,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        mode=NumberMode.SLIDER,
+        value_fn=lambda device: getattr(device, "_eco_shutoff_trend_window_minutes", 5),
+        set_fn=lambda device, value: setattr(device, "_eco_shutoff_trend_window_minutes", value),
         entity_category=EntityCategory.CONFIG,
         restore_state=True,
     ),
@@ -198,16 +226,22 @@ class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
             return UnitOfTemperature.FAHRENHEIT if self._use_fahrenheit else UnitOfTemperature.CELSIUS
         return self.entity_description.native_unit_of_measurement
 
+    _DELTA_TEMP_KEYS = frozenset({
+        "eco_shutoff_satisfied_margin",
+        "eco_shutoff_reengage_delta",
+    })
+
+    def _is_delta_temp(self):
+        return self.entity_description.property_key in self._DELTA_TEMP_KEYS
+
     @property
     def native_min_value(self):
         """Return min value, converted if needed."""
         min_val = self.entity_description.native_min_value
         if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self.entity_description.property_key == "target_tolerance":
-                # Tolerance is a delta, not absolute temperature
+            if self._is_delta_temp():
                 return round(min_val * 9.0 / 5.0, 1)
             else:
-                # Absolute temperature conversion
                 return round(min_val * 9.0 / 5.0 + 32.0, 1)
         return min_val
 
@@ -216,11 +250,9 @@ class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
         """Return max value, converted if needed."""
         max_val = self.entity_description.native_max_value
         if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self.entity_description.property_key == "target_tolerance":
-                # Tolerance is a delta
+            if self._is_delta_temp():
                 return round(max_val * 9.0 / 5.0, 1)
             else:
-                # Absolute temperature conversion
                 return round(max_val * 9.0 / 5.0 + 32.0, 1)
         return max_val
 
@@ -271,11 +303,9 @@ class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
 
         # Convert from stored Celsius to Fahrenheit if needed
         if value is not None and self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self.entity_description.property_key == "target_tolerance":
-                # Tolerance is a delta
+            if self._is_delta_temp():
                 return round(value * 9.0 / 5.0, 1)
             else:
-                # Absolute temperature
                 return round(value * 9.0 / 5.0 + 32.0, 1)
         return value
 
@@ -284,11 +314,9 @@ class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
         # Convert from Fahrenheit to Celsius if needed
         celsius_value = value
         if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self.entity_description.property_key == "target_tolerance":
-                # Tolerance is a delta
+            if self._is_delta_temp():
                 celsius_value = value * 5.0 / 9.0
             else:
-                # Absolute temperature
                 celsius_value = (value - 32.0) * 5.0 / 9.0
 
         if self.entity_description.set_fn:

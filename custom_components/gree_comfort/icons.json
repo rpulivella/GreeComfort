@@ -1,4 +1,7 @@
 {
+  "integration": {
+    "icon": "mdi:air-conditioner"
+  },
   "entity": {
     "climate": {
       "gree": {

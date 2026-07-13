@@ -1,4 +1,4 @@
-"""Support for Gree select entities (e.g., external temperature sensor selection)."""
+"""Support for Gree select entities (e.g., Eco Shutoff temperature sensor selection)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers import entity_registry as er
 
 # Local imports
 from .entity import GreeEntity, GreeEntityDescription
@@ -32,37 +33,46 @@ class GreeSelectEntityDescription(GreeEntityDescription, SelectEntityDescription
 
     set_fn: Callable[[object, str], None] = None
     restore_state: bool = False
-    options_fn: Callable[[object], list[str]] = None
+    options_fn: Callable[[object, str | None], list[str]] = None
 
 
-def get_temperature_sensor_options(hass: HomeAssistant) -> list[str]:
-    """Get list of available temperature sensor entities."""
-    options = ["None"]  # Always include "None" as first option
+def get_temperature_sensor_options(hass: HomeAssistant, entry_id: str | None = None) -> list[str]:
+    """Get list of available temperature sensor entities, excluding this device's own sensors."""
+    options = ["None"]
 
-    # Get all entities from the registry
+    # Build exclusion set: this device's own sensor entities must not be selectable
+    # (the built-in AC sensors go dark when the unit is off, defeating the whole point).
+    own_entity_ids: set[str] = set()
+    if entry_id:
+        registry = er.async_get(hass)
+        own_entity_ids = {
+            e.entity_id
+            for e in registry.entities.get_entries_for_config_entry_id(entry_id)
+        }
+
     for state in hass.states.async_all():
-        # Look for temperature sensors
-        if state.entity_id.startswith("sensor."):
-            # Check for explicit device_class
-            if state.attributes.get("device_class") == "temperature":
-                options.append(state.entity_id)
-            # Also check for temperature units as fallback for helpers/combined sensors
-            elif state.attributes.get("unit_of_measurement") in ["°C", "°F", "K"]:
-                options.append(state.entity_id)
+        if not state.entity_id.startswith("sensor."):
+            continue
+        if state.entity_id in own_entity_ids:
+            continue
+        if state.attributes.get("device_class") == "temperature":
+            options.append(state.entity_id)
+        elif state.attributes.get("unit_of_measurement") in ["°C", "°F", "K"]:
+            options.append(state.entity_id)
 
     return options
 
 
 SELECTS: tuple[GreeSelectEntityDescription, ...] = (
     GreeSelectEntityDescription(
-        property_key="external_temperature_sensor",
+        property_key="eco_shutoff_sensor",
         icon="mdi:thermometer-lines",
         options=[],  # Will be populated dynamically
-        value_fn=lambda device: getattr(device, "_external_temperature_sensor", "None"),
-        set_fn=lambda device, value: setattr(device, "_external_temperature_sensor", None if value == "None" else value),
+        value_fn=lambda device: getattr(device, "_eco_shutoff_sensor", None) or "None",
+        set_fn=lambda device, value: setattr(device, "_eco_shutoff_sensor", None if value == "None" else value),
         entity_category=EntityCategory.CONFIG,
         restore_state=True,
-        options_fn=lambda hass: get_temperature_sensor_options(hass),
+        options_fn=lambda hass, entry_id=None: get_temperature_sensor_options(hass, entry_id),
     ),
     GreeSelectEntityDescription(
         property_key="preset_mode",
@@ -93,11 +103,12 @@ class GreeSelectEntity(GreeEntity, SelectEntity, RestoreEntity):
     def __init__(self, hass: HomeAssistant, entry, description: GreeSelectEntityDescription) -> None:
         super().__init__(hass, entry, description)
         self._hass = hass
-        # Initialize with no external sensor configured
-        self._device._external_temperature_sensor = None
+        self._entry_id = entry.entry_id
+        # Initialize with no Eco Shutoff sensor configured
+        self._device._eco_shutoff_sensor = None
         # Set up options dynamically
         if description.options_fn:
-            self._attr_options = description.options_fn(hass)
+            self._attr_options = description.options_fn(hass, self._entry_id)
         else:
             self._attr_options = description.options or ["None"]
 
@@ -107,7 +118,7 @@ class GreeSelectEntity(GreeEntity, SelectEntity, RestoreEntity):
 
         # Refresh options when entity is added
         if self.entity_description.options_fn:
-            self._attr_options = self.entity_description.options_fn(self._hass)
+            self._attr_options = self.entity_description.options_fn(self._hass, self._entry_id)
 
         # Restore the last selected state if available
         if self.entity_description.restore_state:
@@ -164,7 +175,7 @@ class GreeSelectEntity(GreeEntity, SelectEntity, RestoreEntity):
         """Update the entity."""
         # Refresh available temperature sensors periodically
         if self.entity_description.options_fn:
-            new_options = self.entity_description.options_fn(self._hass)
+            new_options = self.entity_description.options_fn(self._hass, self._entry_id)
             if new_options != self._attr_options:
                 self._attr_options = new_options
                 _LOGGER.debug("Updated temperature sensor options: %s", self._attr_options)

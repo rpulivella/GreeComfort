@@ -118,7 +118,6 @@ async def create_gree_device(hass, config):
         "preset_sleep_cool": config.get("preset_sleep_cool"),
         "preset_away_heat": config.get("preset_away_heat"),
         "preset_away_cool": config.get("preset_away_cool"),
-        "idle_tolerance": config.get("idle_tolerance"),
         "use_fahrenheit": use_fahrenheit,
     }
 
@@ -145,6 +144,10 @@ async def create_gree_device(hass, config):
 
 # update() interval - poll at 10s for accurate idle detection without hammering the device
 SCAN_INTERVAL = timedelta(seconds=10)
+
+# Eco Shutoff: seconds the auxiliary sensor may be unavailable while unit is off before
+# power is restored as a safety measure.
+ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -216,8 +219,8 @@ class GreeClimate(ClimateEntity):
 
         self._temp_sensor_offset = temp_sensor_offset
 
-        # Store for external temp sensor entity (set by sensor entity)
-        self._external_temperature_sensor = None
+        # Eco Shutoff auxiliary sensor (set by select entity; used only by SPO logic)
+        self._eco_shutoff_sensor = None
 
         # Keep unsub callbacks for deregistering listeners
         self._listeners: list = []
@@ -323,16 +326,6 @@ class GreeClimate(ClimateEntity):
                 },
             }
 
-            # Load idle tolerance
-            default_tolerance = 1.0 if use_fahrenheit else 0.5
-            self._target_tolerance = preset_options.get("idle_tolerance", default_tolerance)
-            if self._target_tolerance is None:
-                self._target_tolerance = default_tolerance
-
-            # Load cycle management options
-            self._enforce_off_cycle = preset_options.get("enforce_off_cycle", False)
-            self._min_cycle_duration = timedelta(seconds=preset_options.get("min_cycle_duration_seconds", 300))
-            self._min_off_time = timedelta(seconds=preset_options.get("min_off_time_seconds", 180))
         else:
             # Default preset temperatures in Celsius
             self._preset_temps = {
@@ -340,17 +333,6 @@ class GreeClimate(ClimateEntity):
                 PRESET_SLEEP: {"heat": 17, "cool": 26},
                 PRESET_AWAY: {"heat": 15, "cool": 28},
             }
-            self._target_tolerance = 0.5  # degrees C
-
-            # Default cycle management (disabled)
-            self._enforce_off_cycle = False
-            self._min_cycle_duration = timedelta(seconds=300)
-            self._min_off_time = timedelta(seconds=180)
-
-        # Cycle management state tracking
-        self._last_on_time = None
-        self._last_off_time = None
-        self._forced_off = False
 
         # Smart 8°C mode state (defaults; updated by switch/number entity restore)
         self._stht_smart_enabled = True
@@ -370,8 +352,19 @@ class GreeClimate(ClimateEntity):
         # This would give forgetful-household tolerance without fully surrendering manual control.
         self._schedule_auto_release = False
 
-        # Temperature history for idle detection (150 seconds at 10-second polling)
+        # Temperature history for HVAC action idle detection (150 seconds at 10s polling)
         self._temp_history = deque(maxlen=15)
+
+        # Eco Shutoff state
+        self._eco_shutoff_enabled = False
+        self._eco_shutoff_active = False
+        self._eco_shutoff_sensor_missing_s = 0
+        # Capacity for max trend window (15 min × 6 readings/min at 10s poll)
+        self._eco_shutoff_temp_history = deque(maxlen=90)
+        # Tunable parameters (defaults; overridden by number entity restore)
+        self._eco_shutoff_satisfied_margin = 1.5   # °C past setpoint before shutoff
+        self._eco_shutoff_reengage_delta = 0.5     # °C from setpoint before power-on
+        self._eco_shutoff_trend_window_minutes = 5  # minutes of stable readings required
 
         # Storage for preset persistence
         self._storage = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{name}")
@@ -509,20 +502,6 @@ class GreeClimate(ClimateEntity):
         _LOGGER.debug(f"{self._name}: Fan mode updated to {self._fan_mode}")
 
     def UpdateHACurrentTemperature(self):
-        # Use external temperature sensor if available
-        if self._external_temperature_sensor:
-            # Use external temperature sensor
-            external_sensor_state = self.hass.states.get(self._external_temperature_sensor)
-            if external_sensor_state and external_sensor_state.state not in ("unknown", "unavailable"):
-                try:
-                    unit = external_sensor_state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-                    _LOGGER.debug(f"{self._name}: Using external temperature sensor {self._external_temperature_sensor}: {external_sensor_state.state}{unit}")
-                    self._current_temperature = self.hass.config.units.temperature(float(external_sensor_state.state), unit)
-                    _LOGGER.debug(f"{self._name}: Current temperature from external sensor: {self._current_temperature}{self._unit_of_measurement}")
-                    return
-                except (ValueError, TypeError) as ex:
-                    _LOGGER.error(f"{self._name}: Unable to update from external temp sensor {self._external_temperature_sensor}: {ex}")
-
         # Use built-in AC temperature sensor if available
         if self._has_temp_sensor:
             _LOGGER.debug(f"{self._name}: Built-in temperature sensor reading: {self._acOptions['TemSen']}")
@@ -779,12 +758,11 @@ class GreeClimate(ClimateEntity):
         else:
             await self.SyncState()
 
-        # Manage temperature cycling if enabled
-        if self._enforce_off_cycle:
-            await self._manage_temperature_cycling()
-
         # Manage smart 8°C mode
         await self._manage_stht_auto()
+
+        # Manage Eco Shutoff
+        await self._check_eco_shutoff()
 
     @property
     def name(self):
@@ -863,10 +841,9 @@ class GreeClimate(ClimateEntity):
     @property
     def hvac_action(self):
         """Return current HVAC action - what the unit is actually doing."""
+        if self._eco_shutoff_active:
+            return HVACAction.IDLE
         if not self._acOptions or self._acOptions.get('Pow') == 0:
-            # Unit is off - check if it's forced off due to temperature satisfaction
-            if self._enforce_off_cycle and self._forced_off:
-                return HVACAction.IDLE
             return HVACAction.OFF
 
         current_temp = self._current_temperature
@@ -1053,15 +1030,10 @@ class GreeClimate(ClimateEntity):
         # Add manual override state
         attributes["manual_override"] = self._manual_override
 
-        # Add cycle management state (if enabled)
-        if self._enforce_off_cycle:
-            attributes["cycle_management"] = {
-                "forced_off": self._forced_off,
-                "last_on_time": self._last_on_time.isoformat() if self._last_on_time else None,
-                "last_off_time": self._last_off_time.isoformat() if self._last_off_time else None,
-                "min_cycle_duration_seconds": self._min_cycle_duration.total_seconds(),
-                "min_off_time_seconds": self._min_off_time.total_seconds(),
-            }
+        # Eco Shutoff state
+        attributes["eco_shutoff_active"] = self._eco_shutoff_active
+        if self._eco_shutoff_sensor:
+            attributes["eco_shutoff_sensor"] = self._eco_shutoff_sensor
 
         # Smart 8°C mode debug info
         if self._stht_smart_enabled:
@@ -1235,79 +1207,91 @@ class GreeClimate(ClimateEntity):
         await self.async_set_temperature(temperature=target)
         self._applying_preset = False
 
-    async def _manage_temperature_cycling(self):
-        """Manage compressor cycling to prevent short-cycling."""
-        if not self._acOptions:
+    async def _check_eco_shutoff(self):
+        """Eco Shutoff state machine — runs every poll cycle."""
+        if not self._eco_shutoff_enabled or not self._eco_shutoff_sensor:
+            return
+        if self.hvac_mode not in (HVACMode.HEAT, HVACMode.COOL):
+            return
+        if self._preset_mode in (PRESET_NONE, PRESET_OFF):
             return
 
-        current_temp = self._current_temperature
-        target_temp = self._target_temperature
-        mode = self.hvac_mode
-        is_powered = self._acOptions.get('Pow') == 1
-        now = datetime.now()
-
-        # Can't manage cycling without temperature data
-        if current_temp is None or target_temp is None:
+        # --- Sensor availability check ---
+        sensor_state = self.hass.states.get(self._eco_shutoff_sensor)
+        if sensor_state is None or sensor_state.state in ("unavailable", "unknown"):
+            self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
+            if self._eco_shutoff_active and self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
+                _LOGGER.warning(
+                    f"{self._name}: Eco Shutoff sensor unavailable for "
+                    f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
+                )
+                await self.SyncState({"Pow": 1})
+                self._eco_shutoff_active = False
+                self._eco_shutoff_temp_history.clear()
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
             return
 
-        # Only manage heat/cool modes
-        if mode not in [HVACMode.HEAT, HVACMode.COOL]:
+        self._eco_shutoff_sensor_missing_s = 0
+
+        # --- Read auxiliary temperature in °C ---
+        try:
+            aux_temp = float(sensor_state.state)
+        except (ValueError, TypeError):
             return
+        sensor_unit = sensor_state.attributes.get("unit_of_measurement", "°C")
+        if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
+            aux_temp = (aux_temp - 32.0) * 5.0 / 9.0
+        self._eco_shutoff_temp_history.append(aux_temp)
 
-        # Determine if temperature is satisfied
-        temp_diff = current_temp - target_temp
-        temp_satisfied = abs(temp_diff) <= self._target_tolerance
+        # --- Effective setpoint ---
+        effective_setpoint = 8.0 if self._stht_smart_active else self._target_temperature
 
-        # Track power state changes
-        if is_powered and self._last_on_time is None:
-            self._last_on_time = now
-            _LOGGER.debug(f"{self._name}: Unit powered on at {now}")
+        # --- Satisfaction and re-engage thresholds ---
+        if self.hvac_mode == HVACMode.HEAT:
+            satisfied = aux_temp >= (effective_setpoint + self._eco_shutoff_satisfied_margin)
+            needs_action = aux_temp <= (effective_setpoint - self._eco_shutoff_reengage_delta)
+        else:  # COOL
+            satisfied = aux_temp <= (effective_setpoint - self._eco_shutoff_satisfied_margin)
+            needs_action = aux_temp >= (effective_setpoint + self._eco_shutoff_reengage_delta)
 
-        if not is_powered and self._last_off_time is None:
-            self._last_off_time = now
-            self._forced_off = False  # Reset forced flag when user turns off
-            _LOGGER.debug(f"{self._name}: Unit powered off at {now}")
+        # --- Trend confirmation for shutoff ---
+        required_readings = int(self._eco_shutoff_trend_window_minutes * 6)
+        history = list(self._eco_shutoff_temp_history)
+        trend_confirmed = False
+        if len(history) >= required_readings:
+            slope = self._linear_regression_slope(history[-required_readings:])
+            if self.hvac_mode == HVACMode.HEAT:
+                trend_confirmed = slope <= 0.02
+            else:
+                trend_confirmed = slope >= -0.02
 
-        # Manage cycling when unit is on
-        if is_powered:
-            # Clear off time since we're on
-            self._last_off_time = None
+        is_on = self._acOptions and self._acOptions.get("Pow") == 1
 
-            # Check if we should turn off due to satisfied temperature
-            if temp_satisfied:
-                # Check minimum cycle duration
-                if self._last_on_time:
-                    time_on = (now - self._last_on_time).total_seconds()
-                    min_on = self._min_cycle_duration.total_seconds()
-
-                    if time_on >= min_on:
-                        # Temperature satisfied and minimum on time met - turn off
-                        _LOGGER.info(f"{self._name}: Temperature satisfied, turning off (on for {time_on:.0f}s)")
-                        self._forced_off = True
-                        await self.async_turn_off()
-                        self._last_on_time = None
-                        self._last_off_time = now
-                    else:
-                        _LOGGER.debug(f"{self._name}: Temperature satisfied but min cycle not met ({time_on:.0f}s < {min_on:.0f}s)")
-
-        # Manage cycling when unit is off due to forced off
-        elif self._forced_off:
-            # Check if we should turn back on
-            if not temp_satisfied:
-                # Check minimum off time
-                if self._last_off_time:
-                    time_off = (now - self._last_off_time).total_seconds()
-                    min_off = self._min_off_time.total_seconds()
-
-                    if time_off >= min_off:
-                        # Temperature no longer satisfied and minimum off time met - turn on
-                        _LOGGER.info(f"{self._name}: Temperature needs adjustment, turning on (off for {time_off:.0f}s)")
-                        self._forced_off = False
-                        await self.async_turn_on()
-                        self._last_off_time = None
-                        self._last_on_time = now
-                    else:
-                        _LOGGER.debug(f"{self._name}: Needs heating/cooling but min off not met ({time_off:.0f}s < {min_off:.0f}s)")
+        if not self._eco_shutoff_active:
+            if is_on and satisfied and trend_confirmed:
+                _LOGGER.info(
+                    f"{self._name}: Eco Shutoff — satisfied by {aux_temp:.1f}°C "
+                    f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C), cutting power"
+                )
+                await self.SyncState({"Pow": 0})
+                self._eco_shutoff_active = True
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, True)
+        else:
+            if needs_action:
+                _LOGGER.info(
+                    f"{self._name}: Eco Shutoff — temp {aux_temp:.1f}°C drifted within "
+                    f"{self._eco_shutoff_reengage_delta}°C of setpoint {effective_setpoint:.1f}°C, restoring power"
+                )
+                await self.SyncState({"Pow": 1})
+                self._eco_shutoff_active = False
+                self._eco_shutoff_temp_history.clear()
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
 
     async def _manage_stht_auto(self):
         """Auto-activate 8°C frost protection for away/sleep heat presets after threshold."""
@@ -1371,6 +1355,7 @@ class GreeClimate(ClimateEntity):
             "preset_active_since": self._preset_active_since.isoformat() if self._preset_active_since else None,
             "stht_smart_active": self._stht_smart_active,
             "scheduled_preset": self._scheduled_preset,
+            "eco_shutoff_active": self._eco_shutoff_active,
         })
 
     async def async_set_preset_mode(self, preset_mode):
@@ -1503,6 +1488,9 @@ class GreeClimate(ClimateEntity):
 
             self._scheduled_preset = data.get("scheduled_preset")
             _LOGGER.info(f"{self._name}: Restored scheduled preset: {self._scheduled_preset}")
+
+            self._eco_shutoff_active = data.get("eco_shutoff_active", False)
+            _LOGGER.info(f"{self._name}: Restored eco_shutoff_active: {self._eco_shutoff_active}")
 
         # Fetch current device state (reads temp, mode, etc. from physical unit)
         await self.async_update()
