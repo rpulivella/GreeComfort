@@ -1076,6 +1076,16 @@ class GreeClimate(ClimateEntity):
         """Set new target temperature."""
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
         if target_temperature is not None:
+            # Explicit setpoint change while eco shutoff is holding the unit off — user
+            # is taking control back, so clear eco and restore power before applying.
+            if self._eco_shutoff_active:
+                self._eco_shutoff_active = False
+                self._eco_shutoff_satisfied_since = None
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
+                await self.SyncState({"Pow": 1})
+
             # do nothing if temperature is none
             if not (self._acOptions["Pow"] == 0):
                 # do nothing if HVAC is switched off
@@ -1315,8 +1325,8 @@ class GreeClimate(ClimateEntity):
                     f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C) "
                     f"for {elapsed_s / 60:.1f} min, cutting power"
                 )
-                await self.SyncState({"Pow": 0})
                 self._eco_shutoff_active = True
+                await self.SyncState({"Pow": 0})
                 await self._save_persistent_state()
                 signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
                 async_dispatcher_send(self.hass, signal, True)
