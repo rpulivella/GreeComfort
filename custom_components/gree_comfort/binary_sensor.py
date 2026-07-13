@@ -35,6 +35,12 @@ BINARY_SENSORS: tuple[GreeBinarySensorEntityDescription, ...] = (
         value_fn=lambda device: device._manual_override,
         available_fn=lambda device: device.available,
     ),
+    GreeBinarySensorEntityDescription(
+        property_key="eco_shutoff_active",
+        translation_key="eco_shutoff_active",
+        value_fn=lambda device: device._eco_shutoff_active,
+        available_fn=lambda device: device.available,
+    ),
 )
 
 
@@ -69,12 +75,13 @@ class GreeBinarySensor(GreeEntity, BinarySensorEntity):
         """Run when entity about to be added to hass."""
         await super().async_added_to_hass()
 
-        # Listen for manual override updates from the climate entity
-        if self.entity_description.property_key == "manual_override":
-            signal = f"{DOMAIN}_{self._device._mac_addr}_manual_override_update"
-
+        signal_map = {
+            "manual_override": f"{DOMAIN}_{self._device._mac_addr}_manual_override_update",
+            "eco_shutoff_active": f"{DOMAIN}_{self._device._mac_addr}_eco_shutoff_update",
+        }
+        signal = signal_map.get(self.entity_description.property_key)
+        if signal:
             async def handle_update(value):
-                """Handle manual override update."""
                 self.async_write_ha_state()
 
             self.async_on_remove(

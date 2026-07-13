@@ -42,10 +42,6 @@ OPTION_KEYS = {
     "preset_sleep_cool",
     "preset_away_heat",
     "preset_away_cool",
-    "idle_tolerance",
-    "enforce_off_cycle",
-    "min_off_time_seconds",
-    "min_cycle_duration_seconds",
 }
 
 MODES_MAPPING = {
