@@ -1217,6 +1217,14 @@ class GreeClimate(ClimateEntity):
     async def _check_eco_shutoff(self):
         """Eco Shutoff state machine — runs every poll cycle."""
         if not self._eco_shutoff_enabled or not self._eco_shutoff_sensor:
+            if self._eco_shutoff_active:
+                # Stale active flag (feature disabled or sensor removed after a firing) —
+                # clear it now so the Store and UI stay consistent across reloads.
+                self._eco_shutoff_active = False
+                self._eco_shutoff_satisfied_since = None
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
             return
         if self.hvac_mode not in (HVACMode.HEAT, HVACMode.COOL):
             return

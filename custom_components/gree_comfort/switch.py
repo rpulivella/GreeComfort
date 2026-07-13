@@ -17,6 +17,7 @@ from homeassistant.components.switch import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -105,9 +106,13 @@ async def _set_schedule_auto_release(device, value: bool) -> None:
 async def _set_eco_shutoff_enabled(device, value: bool) -> None:
     setattr(device, "_eco_shutoff_enabled", value)
     if not value and getattr(device, "_eco_shutoff_active", False):
-        # Feature disabled while holding unit off — restore power immediately
+        # Feature disabled while holding unit off — restore power and persist so the
+        # Store no longer carries eco_shutoff_active: true across reloads.
         setattr(device, "_eco_shutoff_active", False)
         await device.SyncState({"Pow": 1})
+        await device._save_persistent_state()
+        signal = f"{DOMAIN}_{device._mac_addr}_eco_shutoff_update"
+        async_dispatcher_send(device.hass, signal, False)
 
 
 SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
