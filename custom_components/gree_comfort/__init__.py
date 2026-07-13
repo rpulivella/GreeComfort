@@ -112,7 +112,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Migrate: remove entity registry entries that were renamed in past versions.
     registry = er.async_get(hass)
-    stale_suffixes = ("_external_temperature_sensor",)
+    stale_suffixes = ("_external_temperature_sensor", "_target_tolerance")
     for entity_entry in registry.entities.get_entries_for_config_entry_id(entry.entry_id):
         if any(entity_entry.unique_id.endswith(s) for s in stale_suffixes):
             _LOGGER.info("Removing stale entity %s (unique_id: %s)", entity_entry.entity_id, entity_entry.unique_id)

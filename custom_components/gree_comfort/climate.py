@@ -841,6 +841,8 @@ class GreeClimate(ClimateEntity):
     @property
     def hvac_action(self):
         """Return current HVAC action - what the unit is actually doing."""
+        if self._eco_shutoff_active:
+            return HVACAction.IDLE
         if not self._acOptions or self._acOptions.get('Pow') == 0:
             return HVACAction.OFF
 
