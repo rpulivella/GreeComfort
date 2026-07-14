@@ -151,8 +151,9 @@ SCAN_INTERVAL = timedelta(seconds=10)
 # power is restored as a safety measure.
 ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
 # Eco Shutoff: max age of sensor's last_reported timestamp before treating it as stale.
-# Must exceed the sensor's max reporting interval (3600s); 75 min gives one full cycle of headroom.
-ECO_SHUTOFF_SENSOR_STALE_S = 75 * 60  # 4500s
+# 2× the Zigbee max reporting interval (3600s) — absorbs coordinator jitter that can delay
+# reports by 60–100 min, preventing false-positive stale restores.
+ECO_SHUTOFF_SENSOR_STALE_S = 120 * 60  # 7200s
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
