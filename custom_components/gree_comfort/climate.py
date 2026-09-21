@@ -1147,6 +1147,11 @@ class GreeClimate(ClimateEntity):
             if hasattr(self, "_auto_xfan") and self._auto_xfan:
                 if (hvac_mode == HVACMode.COOL) or (hvac_mode == HVACMode.DRY):
                     c.update({"Blo": 1})
+        # Clear smart 8°C in the same command so the device never reports StHt=1 outside heat
+        if self._stht_smart_active and hvac_mode != HVACMode.HEAT:
+            _LOGGER.info(f"{self._name}: Mode changed to {hvac_mode} - deactivating smart 8°C mode")
+            self._stht_smart_active = False
+            c.update({"StHt": 0})
         await self.SyncState(c)
         await self._save_persistent_state()
 
