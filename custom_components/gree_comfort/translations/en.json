@@ -373,5 +373,15 @@
         "description": "Automatically powers the unit off when the room temperature has been satisfied and a trend confirms it will stay that way. Powers back on when temperature drifts. Requires an Eco Shutoff Temperature Sensor to be configured."
       }
     }
+  },
+  "issues": {
+    "eco_shutoff_sensor_unavailable": {
+      "title": "Eco Shutoff sensor unavailable — {device_name}",
+      "description": "The auxiliary temperature sensor **{sensor_id}** configured for Eco Shutoff on **{device_name}** has been unavailable or unresponsive for an extended period. Eco Shutoff is paused until the sensor recovers. Check the sensor, its battery, and its connection to Home Assistant."
+    },
+    "eco_shutoff_restore_failed": {
+      "title": "Eco Shutoff setting lost — {device_name}",
+      "description": "The Eco Shutoff enabled state for **{device_name}** could not be restored after restart and has defaulted to off. If you had Eco Shutoff enabled, re-enable it on the device settings page."
+    }
   }
 }

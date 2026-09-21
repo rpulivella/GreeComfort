@@ -1,7 +1,7 @@
 {
   "domain": "gree_comfort",
   "name": "Gree Comfort",
-  "version": "3.3.2-comfort",
+  "version": "1.0.1",
   "dependencies": [],
   "codeowners": [],
   "requirements": [

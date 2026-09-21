@@ -30,7 +30,10 @@ from homeassistant.const import (
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.const import UnitOfTemperature
+from homeassistant.util import dt as dt_util
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 # Local imports
 from .const import (
@@ -148,6 +151,10 @@ SCAN_INTERVAL = timedelta(seconds=10)
 # Eco Shutoff: seconds the auxiliary sensor may be unavailable while unit is off before
 # power is restored as a safety measure.
 ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
+# Eco Shutoff: max age of sensor's last_reported timestamp before treating it as stale.
+# 2× the Zigbee max reporting interval (3600s) — absorbs coordinator jitter that can delay
+# reports by 60–100 min, preventing false-positive stale restores.
+ECO_SHUTOFF_SENSOR_STALE_S = 120 * 60  # 7200s
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -359,12 +366,11 @@ class GreeClimate(ClimateEntity):
         self._eco_shutoff_enabled = False
         self._eco_shutoff_active = False
         self._eco_shutoff_sensor_missing_s = 0
-        # Capacity for max trend window (15 min × 6 readings/min at 10s poll)
-        self._eco_shutoff_temp_history = deque(maxlen=90)
+        self._eco_shutoff_satisfied_since: datetime | None = None
         # Tunable parameters (defaults; overridden by number entity restore)
         self._eco_shutoff_satisfied_margin = 1.5   # °C past setpoint before shutoff
         self._eco_shutoff_reengage_delta = 0.5     # °C from setpoint before power-on
-        self._eco_shutoff_trend_window_minutes = 5  # minutes of stable readings required
+        self._eco_shutoff_trend_window_minutes = 5  # minutes room must stay satisfied
 
         # Storage for preset persistence
         self._storage = Store(hass, STORAGE_VERSION, f"{STORAGE_KEY}_{name}")
@@ -460,7 +466,10 @@ class GreeClimate(ClimateEntity):
     def UpdateHAHvacMode(self):
         # Sync current HVAC operation mode to HA
         if self._acOptions["Pow"] == 0:
-            self._hvac_mode = HVACMode.OFF
+            if not self._eco_shutoff_active:
+                self._hvac_mode = HVACMode.OFF
+            # else: eco shutoff owns this power-off — preserve mode so re-engage logic and
+            # hvac_action can run correctly; the unit is idle, not user-off
         else:
             for key, value in MODES_MAPPING.get("Mod").items():
                 if value == (self._acOptions["Mod"]):
@@ -1069,6 +1078,16 @@ class GreeClimate(ClimateEntity):
         """Set new target temperature."""
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
         if target_temperature is not None:
+            # Explicit setpoint change while eco shutoff is holding the unit off — user
+            # is taking control back, so clear eco and restore power before applying.
+            if self._eco_shutoff_active:
+                self._eco_shutoff_active = False
+                self._eco_shutoff_satisfied_since = None
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
+                await self.SyncState({"Pow": 1})
+
             # do nothing if temperature is none
             if not (self._acOptions["Pow"] == 0):
                 # do nothing if HVAC is switched off
@@ -1210,6 +1229,14 @@ class GreeClimate(ClimateEntity):
     async def _check_eco_shutoff(self):
         """Eco Shutoff state machine — runs every poll cycle."""
         if not self._eco_shutoff_enabled or not self._eco_shutoff_sensor:
+            if self._eco_shutoff_active:
+                # Stale active flag (feature disabled or sensor removed after a firing) —
+                # clear it now so the Store and UI stay consistent across reloads.
+                self._eco_shutoff_active = False
+                self._eco_shutoff_satisfied_since = None
+                await self._save_persistent_state()
+                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                async_dispatcher_send(self.hass, signal, False)
             return
         if self.hvac_mode not in (HVACMode.HEAT, HVACMode.COOL):
             return
@@ -1218,35 +1245,68 @@ class GreeClimate(ClimateEntity):
 
         # --- Sensor availability check ---
         sensor_state = self.hass.states.get(self._eco_shutoff_sensor)
-        if sensor_state is None or sensor_state.state in ("unavailable", "unknown"):
-            self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
-            if self._eco_shutoff_active and self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
+        sensor_stale = False
+        if sensor_state is not None and sensor_state.state not in ("unavailable", "unknown"):
+            last_reported = getattr(sensor_state, "last_reported", sensor_state.last_updated)
+            age_s = (dt_util.utcnow() - last_reported).total_seconds()
+            if age_s > ECO_SHUTOFF_SENSOR_STALE_S:
+                sensor_stale = True
                 _LOGGER.warning(
-                    f"{self._name}: Eco Shutoff sensor unavailable for "
-                    f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
+                    f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago — treating as stale"
                 )
-                await self.SyncState({"Pow": 1})
-                self._eco_shutoff_active = False
-                self._eco_shutoff_temp_history.clear()
-                await self._save_persistent_state()
-                signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
-                async_dispatcher_send(self.hass, signal, False)
+        if sensor_state is None or sensor_state.state in ("unavailable", "unknown") or sensor_stale:
+            self._eco_shutoff_satisfied_since = None
+            self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
+            if self._eco_shutoff_sensor_missing_s >= ECO_SHUTOFF_SENSOR_TIMEOUT_S:
+                if self._eco_shutoff_enabled:
+                    ir.async_create_issue(
+                        self.hass,
+                        DOMAIN,
+                        f"eco_shutoff_sensor_{self._mac_addr}",
+                        is_fixable=False,
+                        severity=ir.IssueSeverity.WARNING,
+                        translation_key="eco_shutoff_sensor_unavailable",
+                        translation_placeholders={
+                            "device_name": self._name,
+                            "sensor_id": self._eco_shutoff_sensor or "",
+                        },
+                    )
+                if self._eco_shutoff_active:
+                    _LOGGER.warning(
+                        f"{self._name}: Eco Shutoff sensor unavailable for "
+                        f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
+                    )
+                    await self.SyncState({"Pow": 1})
+                    self._eco_shutoff_active = False
+                    await self._save_persistent_state()
+                    signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
+                    async_dispatcher_send(self.hass, signal, False)
             return
 
+        # Sensor is healthy — clear any outstanding repair issue and reset counter
         self._eco_shutoff_sensor_missing_s = 0
+        ir.async_delete_issue(self.hass, DOMAIN, f"eco_shutoff_sensor_{self._mac_addr}")
 
         # --- Read auxiliary temperature in °C ---
         try:
             aux_temp = float(sensor_state.state)
         except (ValueError, TypeError):
             return
-        sensor_unit = sensor_state.attributes.get("unit_of_measurement", "°C")
-        if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
-            aux_temp = (aux_temp - 32.0) * 5.0 / 9.0
-        self._eco_shutoff_temp_history.append(aux_temp)
+        sensor_unit = sensor_state.attributes.get("unit_of_measurement", UnitOfTemperature.CELSIUS)
+        if sensor_unit not in TemperatureConverter.VALID_UNITS:
+            _LOGGER.warning(f"{self._name}: Eco Shutoff sensor has unsupported unit {sensor_unit!r}, skipping")
+            return
+        aux_temp = TemperatureConverter.convert(aux_temp, sensor_unit, UnitOfTemperature.CELSIUS)
 
-        # --- Effective setpoint ---
-        effective_setpoint = 8.0 if self._stht_smart_active else self._target_temperature
+        # --- Effective setpoint in °C (_target_temperature is in the display unit) ---
+        if self._stht_smart_active:
+            effective_setpoint = 8.0
+        else:
+            if self._target_temperature is None:
+                return
+            effective_setpoint = TemperatureConverter.convert(
+                self._target_temperature, self._unit_of_measurement, UnitOfTemperature.CELSIUS
+            )
 
         # --- Satisfaction and re-engage thresholds ---
         if self.hvac_mode == HVACMode.HEAT:
@@ -1256,27 +1316,28 @@ class GreeClimate(ClimateEntity):
             satisfied = aux_temp <= (effective_setpoint - self._eco_shutoff_satisfied_margin)
             needs_action = aux_temp >= (effective_setpoint + self._eco_shutoff_reengage_delta)
 
-        # --- Trend confirmation for shutoff ---
-        required_readings = int(self._eco_shutoff_trend_window_minutes * 6)
-        history = list(self._eco_shutoff_temp_history)
-        trend_confirmed = False
-        if len(history) >= required_readings:
-            slope = self._linear_regression_slope(history[-required_readings:])
-            if self.hvac_mode == HVACMode.HEAT:
-                trend_confirmed = slope <= 0.02
-            else:
-                trend_confirmed = slope >= -0.02
+        # --- Time-based satisfaction window for shutoff ---
+        now = dt_util.utcnow()
+        if satisfied:
+            if self._eco_shutoff_satisfied_since is None:
+                self._eco_shutoff_satisfied_since = now
+            elapsed_s = (now - self._eco_shutoff_satisfied_since).total_seconds()
+            time_confirmed = elapsed_s >= self._eco_shutoff_trend_window_minutes * 60
+        else:
+            self._eco_shutoff_satisfied_since = None
+            time_confirmed = False
 
         is_on = self._acOptions and self._acOptions.get("Pow") == 1
 
         if not self._eco_shutoff_active:
-            if is_on and satisfied and trend_confirmed:
+            if is_on and satisfied and time_confirmed:
                 _LOGGER.info(
                     f"{self._name}: Eco Shutoff — satisfied by {aux_temp:.1f}°C "
-                    f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C), cutting power"
+                    f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C) "
+                    f"for {elapsed_s / 60:.1f} min, cutting power"
                 )
-                await self.SyncState({"Pow": 0})
                 self._eco_shutoff_active = True
+                await self.SyncState({"Pow": 0})
                 await self._save_persistent_state()
                 signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
                 async_dispatcher_send(self.hass, signal, True)
@@ -1288,7 +1349,6 @@ class GreeClimate(ClimateEntity):
                 )
                 await self.SyncState({"Pow": 1})
                 self._eco_shutoff_active = False
-                self._eco_shutoff_temp_history.clear()
                 await self._save_persistent_state()
                 signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
                 async_dispatcher_send(self.hass, signal, False)
@@ -1491,6 +1551,11 @@ class GreeClimate(ClimateEntity):
 
             self._eco_shutoff_active = data.get("eco_shutoff_active", False)
             _LOGGER.info(f"{self._name}: Restored eco_shutoff_active: {self._eco_shutoff_active}")
+            if self._eco_shutoff_active and self._last_non_auto_hvac_mode not in (HVACMode.OFF, None):
+                # Eco shutoff was holding the unit off at shutdown; prime hvac_mode so the
+                # mode guard in _check_eco_shutoff passes on first poll and re-engage can run.
+                self._hvac_mode = self._last_non_auto_hvac_mode
+                _LOGGER.info(f"{self._name}: Primed hvac_mode to {self._hvac_mode} for eco shutoff re-evaluate")
 
         # Fetch current device state (reads temp, mode, etc. from physical unit)
         await self.async_update()

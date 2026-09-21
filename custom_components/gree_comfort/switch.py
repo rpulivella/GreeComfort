@@ -17,11 +17,14 @@ from homeassistant.components.switch import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers import issue_registry as ir
 
 # Local imports
+from .const import DOMAIN
 from .entity import GreeEntity, GreeEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -103,10 +106,13 @@ async def _set_schedule_auto_release(device, value: bool) -> None:
 async def _set_eco_shutoff_enabled(device, value: bool) -> None:
     setattr(device, "_eco_shutoff_enabled", value)
     if not value and getattr(device, "_eco_shutoff_active", False):
-        # Feature disabled while holding unit off — restore power immediately
+        # Feature disabled while holding unit off — restore power and persist so the
+        # Store no longer carries eco_shutoff_active: true across reloads.
         setattr(device, "_eco_shutoff_active", False)
-        device._eco_shutoff_temp_history.clear()
         await device.SyncState({"Pow": 1})
+        await device._save_persistent_state()
+        signal = f"{DOMAIN}_{device._mac_addr}_eco_shutoff_update"
+        async_dispatcher_send(device.hass, signal, False)
 
 
 SWITCHES: tuple[GreeSwitchEntityDescription, ...] = (
@@ -258,11 +264,35 @@ class GreeSwitchEntity(GreeEntity, SwitchEntity, RestoreEntity):
         # Restore state if applicable
         if self.entity_description.restore_state:
             last_state = await self.async_get_last_state()
-            if last_state is not None:
+            if last_state is not None and last_state.state in ("on", "off"):
                 value = last_state.state == "on"
                 await self.entity_description.set_fn(self._device, value)
                 self._attr_is_on = value
                 self._restored = True
+                if self.entity_description.property_key == "eco_shutoff_enabled":
+                    ir.async_delete_issue(self.hass, DOMAIN, f"eco_shutoff_restore_{self._device._mac_addr}")
+            else:
+                reason = (
+                    "no previous state found"
+                    if last_state is None
+                    else f"previous state was '{last_state.state}'"
+                )
+                _LOGGER.warning(
+                    "%s: %s for %s — defaulting to off",
+                    self._device._name,
+                    reason,
+                    self.entity_description.property_key,
+                )
+                if self.entity_description.property_key == "eco_shutoff_enabled":
+                    ir.async_create_issue(
+                        self.hass,
+                        DOMAIN,
+                        f"eco_shutoff_restore_{self._device._mac_addr}",
+                        is_fixable=False,
+                        severity=ir.IssueSeverity.WARNING,
+                        translation_key="eco_shutoff_restore_failed",
+                        translation_placeholders={"device_name": self._device._name},
+                    )
 
     @property
     def native_value(self):
