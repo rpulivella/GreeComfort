@@ -33,6 +33,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.const import UnitOfTemperature
 from homeassistant.util import dt as dt_util
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 # Local imports
 from .const import (
@@ -1291,12 +1292,21 @@ class GreeClimate(ClimateEntity):
             aux_temp = float(sensor_state.state)
         except (ValueError, TypeError):
             return
-        sensor_unit = sensor_state.attributes.get("unit_of_measurement", "°C")
-        if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
-            aux_temp = (aux_temp - 32.0) * 5.0 / 9.0
+        sensor_unit = sensor_state.attributes.get("unit_of_measurement", UnitOfTemperature.CELSIUS)
+        if sensor_unit not in TemperatureConverter.VALID_UNITS:
+            _LOGGER.warning(f"{self._name}: Eco Shutoff sensor has unsupported unit {sensor_unit!r}, skipping")
+            return
+        aux_temp = TemperatureConverter.convert(aux_temp, sensor_unit, UnitOfTemperature.CELSIUS)
 
-        # --- Effective setpoint ---
-        effective_setpoint = 8.0 if self._stht_smart_active else self._target_temperature
+        # --- Effective setpoint in °C (_target_temperature is in the display unit) ---
+        if self._stht_smart_active:
+            effective_setpoint = 8.0
+        else:
+            if self._target_temperature is None:
+                return
+            effective_setpoint = TemperatureConverter.convert(
+                self._target_temperature, self._unit_of_measurement, UnitOfTemperature.CELSIUS
+            )
 
         # --- Satisfaction and re-engage thresholds ---
         if self.hvac_mode == HVACMode.HEAT:
