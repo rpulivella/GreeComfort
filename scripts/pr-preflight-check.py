@@ -16,6 +16,7 @@ import contextlib
 import importlib
 import io
 import json
+import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -61,6 +62,17 @@ def runTests() -> GateResult:
     return GateResult("pytest", int(code) == 0, lastLine, output)
 
 
+def runRuff() -> GateResult:
+    """Run ruff over the whole repository; its package is a shim with no linting API of its own."""
+    from ruff.__main__ import find_ruff_bin
+
+    binary = find_ruff_bin()
+    completed = subprocess.run([binary, "check", "."], capture_output=True, text=True, check=False)
+    output = (completed.stdout or completed.stderr or "").strip()
+    lastLine = output.splitlines()[-1] if output else "ruff printed nothing"
+    return GateResult("ruff", completed.returncode == 0, lastLine, output)
+
+
 def runJson() -> GateResult:
     """Parse every JSON the integration ships and every one at the root, which HA and HACS read."""
     root = findRepositoryRoot()
@@ -97,6 +109,7 @@ def runStandards() -> GateResult:
 gates: dict[str, Callable[[], GateResult]] = {
     "pytest": runTests,
     "standards": runStandards,
+    "ruff": runRuff,
     "json": runJson,
 }
 

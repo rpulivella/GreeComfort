@@ -19,3 +19,34 @@ source = ["custom_components/gree_comfort"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+
+[tool.ruff]
+# Excludes nothing: the whole tree, including scripts/ and tests/, is in scope.
+
+[tool.ruff.lint]
+# Six sets, each earning its place. Measured 2026-09-22 on the tree as it stood: F found two
+# unused imports, B found nine `setattr()` calls no safer than the attribute access they hide
+# and one `zip()` that truncates in silence, SIM found five inverted comparisons that read
+# backwards. E501 line-too-long is excluded: this integration started from RobHofmann's fork,
+# which never wrote to a fixed column, so measuring it against one now would flag hundreds of
+# lines with nothing wrong beyond their length, not a real style this repository has ever kept.
+# Every other E code found nothing, so excluding only E501 loses nothing E still catches.
+#
+#   F    pyflakes: unused imports, undefined names, a value assigned and never read.
+#   E    pycodestyle errors, minus E501 for the reason above.
+#   I    import ordering, entirely mechanical and entirely auto-fixable.
+#   UP   syntax a supported Python makes obsolete, such as `TimeoutError` over its old aliases.
+#   B    bugbear: mutable default arguments, `setattr()` with a literal name, `zip()` without
+#        `strict=`, which silently drops the tail of the longer argument.
+#   SIM  simpler equivalents for constructs that read as more than they are.
+#
+# NOT selected, and why, so nobody adds it thinking it was an oversight:
+#
+#   N    pep8-naming demands snake_case. `climate.py` mixes three conventions on purpose: Home
+#        Assistant's entity base classes require exact snake_case overrides (`should_poll`,
+#        `available`), the protocol layer keeps the PascalCase field names the Gree unit itself
+#        uses on the wire (`SetTem`, `TemRec`), and this repository's own newer code, including
+#        this preflight script, is deliberately camelCase. N reported 103 violations, nearly all
+#        of them one of those three conventions working as intended, not an accident.
+select = ["F", "E", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

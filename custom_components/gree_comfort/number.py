@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 # Standard library imports
+import contextlib
 import logging
 import math
 from collections.abc import Callable
@@ -20,10 +21,13 @@ from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util.unit_conversion import TemperatureConverter, TemperatureDeltaConverter
+from homeassistant.util.unit_conversion import (
+    TemperatureConverter,
+    TemperatureDeltaConverter,
+)
 
 # Local imports
-from .const import DEFAULT_TARGET_TEMP_STEP, MIN_TEMP_C, MAX_TEMP_C
+from .const import DEFAULT_TARGET_TEMP_STEP, MAX_TEMP_C, MIN_TEMP_C
 from .entity import GreeEntity, GreeEntityDescription
 
 _LOGGER = logging.getLogger(__name__)
@@ -228,10 +232,8 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
         super().__init__(hass, entry, description)
 
         if self.entity_description.value_fn:
-            try:
+            with contextlib.suppress(AttributeError, KeyError, TypeError):
                 self._internal_value = self.entity_description.value_fn(self._device)
-            except (AttributeError, KeyError, TypeError):
-                pass
 
     def _is_temperature(self) -> bool:
         return self.entity_description.device_class in (NumberDeviceClass.TEMPERATURE, NumberDeviceClass.TEMPERATURE_DELTA)

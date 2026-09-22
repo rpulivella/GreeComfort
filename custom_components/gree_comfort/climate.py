@@ -7,7 +7,7 @@ This module defines the climate (HVAC) unit for the Gree integration.
 # Standard library imports
 import base64
 import logging
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 # Third-party imports
 try:
@@ -17,48 +17,66 @@ except ImportError:
 from Crypto.Cipher import AES
 
 # Home Assistant imports
-from homeassistant.components.climate import ClimateEntity, ClimateEntityFeature, HVACMode, HVACAction
+from homeassistant.components.climate import (
+    ClimateEntity,
+    ClimateEntityFeature,
+    HVACAction,
+    HVACMode,
+)
 from homeassistant.const import (
     ATTR_TEMPERATURE,
-    ATTR_UNIT_OF_MEASUREMENT,
     CONF_HOST,
     CONF_MAC,
     CONF_NAME,
     CONF_PORT,
+    UnitOfTemperature,
 )
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.storage import Store
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers import issue_registry as ir
-from homeassistant.const import UnitOfTemperature
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import TemperatureConverter
 
 # Local imports
 from .const import (
-    DOMAIN,
-    DEFAULT_PORT,
-    DEFAULT_HVAC_MODES,
+    CONF_DISABLE_AVAILABLE_CHECK,
+    CONF_ENCRYPTION_KEY,
+    CONF_ENCRYPTION_VERSION,
+    CONF_FAN_MODES,
+    CONF_HVAC_MODES,
+    CONF_SWING_HORIZONTAL_MODES,
+    CONF_SWING_MODES,
+    CONF_TEMP_SENSOR_OFFSET,
+    CONF_UID,
     DEFAULT_FAN_MODES,
-    DEFAULT_SWING_MODES,
+    DEFAULT_HVAC_MODES,
+    DEFAULT_PORT,
     DEFAULT_SWING_HORIZONTAL_MODES,
+    DEFAULT_SWING_MODES,
     DEFAULT_TARGET_TEMP_STEP,
-    MIN_TEMP_C,
+    DOMAIN,
     MAX_TEMP_C,
+    MIN_TEMP_C,
     MODES_MAPPING,
     TEMSEN_OFFSET,
-    CONF_HVAC_MODES,
-    CONF_FAN_MODES,
-    CONF_SWING_MODES,
-    CONF_SWING_HORIZONTAL_MODES,
-    CONF_ENCRYPTION_KEY,
-    CONF_UID,
-    CONF_ENCRYPTION_VERSION,
-    CONF_DISABLE_AVAILABLE_CHECK,
-    CONF_TEMP_SENSOR_OFFSET,
 )
-from .gree_protocol import Pad, FetchResult, GetDeviceKey, GetGCMCipher, EncryptGCM, GetDeviceKeyGCM
-from .helpers import TempOffsetResolver, TemSenStepTracker, gree_f_to_c, gree_c_to_f, encode_temp_c, decode_temp_c
+from .gree_protocol import (
+    EncryptGCM,
+    FetchResult,
+    GetDeviceKey,
+    GetDeviceKeyGCM,
+    GetGCMCipher,
+    Pad,
+)
+from .helpers import (
+    TempOffsetResolver,
+    TemSenStepTracker,
+    decode_temp_c,
+    encode_temp_c,
+    gree_c_to_f,
+    gree_f_to_c,
+)
 
 REQUIREMENTS = ["pycryptodome"]
 
@@ -381,10 +399,10 @@ class GreeClimate(ClimateEntity):
         plaintext = '{"cols":' + simplejson.dumps(propertyNames) + ',"mac":"' + str(self._sub_mac_addr) + '","t":"status"}'
         if self.encryption_version == 1:
             cipher = self.CIPHER
-            jsonPayloadToSend = '{"cid":"app","i":0,"pack":"' + base64.b64encode(cipher.encrypt(Pad(plaintext).encode("utf8"))).decode("utf-8") + '","t":"pack","tcid":"' + str(self._mac_addr) + '","uid":{}'.format(self._uid) + "}"
+            jsonPayloadToSend = '{"cid":"app","i":0,"pack":"' + base64.b64encode(cipher.encrypt(Pad(plaintext).encode("utf8"))).decode("utf-8") + '","t":"pack","tcid":"' + str(self._mac_addr) + f'","uid":{self._uid}' + "}"
         elif self.encryption_version == 2:
             pack, tag = EncryptGCM(self._encryption_key, plaintext)
-            jsonPayloadToSend = '{"cid":"app","i":0,"pack":"' + pack + '","t":"pack","tcid":"' + str(self._mac_addr) + '","uid":{}'.format(self._uid) + ',"tag" : "' + tag + '"}'
+            jsonPayloadToSend = '{"cid":"app","i":0,"pack":"' + pack + '","t":"pack","tcid":"' + str(self._mac_addr) + f'","uid":{self._uid}' + ',"tag" : "' + tag + '"}'
             cipher = GetGCMCipher(self._encryption_key)
         result = await FetchResult(cipher, self._ip_addr, self._port, jsonPayloadToSend, encryption_version=self.encryption_version)
         return result["dat"][0] if len(result["dat"]) == 1 else result["dat"]
@@ -416,7 +434,7 @@ class GreeClimate(ClimateEntity):
         # Filter out empty ones
         filtered_opt = []
         filtered_p = []
-        for name, val in zip(opt_list, p_values):
+        for name, val in zip(opt_list, p_values, strict=True):
             if val not in ("", None):
                 filtered_opt.append(f'"{name}"')
                 filtered_p.append(str(val))
@@ -430,10 +448,10 @@ class GreeClimate(ClimateEntity):
 
         if self.encryption_version == 1:
             cipher = self.CIPHER
-            sentJsonPayload = '{"cid":"app","i":0,"pack":"' + base64.b64encode(cipher.encrypt(Pad(statePackJson).encode("utf8"))).decode("utf-8") + '","t":"pack","tcid":"' + str(self._mac_addr) + '","uid":{}'.format(self._uid) + "}"
+            sentJsonPayload = '{"cid":"app","i":0,"pack":"' + base64.b64encode(cipher.encrypt(Pad(statePackJson).encode("utf8"))).decode("utf-8") + '","t":"pack","tcid":"' + str(self._mac_addr) + f'","uid":{self._uid}' + "}"
         elif self.encryption_version == 2:
             pack, tag = EncryptGCM(self._encryption_key, statePackJson)
-            sentJsonPayload = '{"cid":"app","i":0,"pack":"' + pack + '","t":"pack","tcid":"' + str(self._mac_addr) + '","uid":{}'.format(self._uid) + ',"tag":"' + tag + '"}'
+            sentJsonPayload = '{"cid":"app","i":0,"pack":"' + pack + '","t":"pack","tcid":"' + str(self._mac_addr) + f'","uid":{self._uid}' + ',"tag":"' + tag + '"}'
             cipher = GetGCMCipher(self._encryption_key)
         result = await FetchResult(cipher, self._ip_addr, self._port, sentJsonPayload, encryption_version=self.encryption_version)
         _LOGGER.debug(f"{self._name}: Command sent successfully: {str(result)}")
@@ -599,9 +617,11 @@ class GreeClimate(ClimateEntity):
         # (detects manual changes made on physical device)
         self._recalculate_manual_override()
 
-    async def SyncState(self, acOptions={}):
+    async def SyncState(self, acOptions=None):
         # Fetch current settings from HVAC
         _LOGGER.debug(f"{self._name}: Starting device state sync")
+        if acOptions is None:
+            acOptions = {}
 
         if self._has_temp_sensor is None:
             _LOGGER.debug("Attempt to check whether device has an built-in temperature sensor")
@@ -697,14 +717,13 @@ class GreeClimate(ClimateEntity):
                 _LOGGER.info(f"{self._name}: Device marked offline after failed communication")
                 self._device_online = False
         else:
-            if not self._disable_available_check:
-                if not self._device_online:
-                    self._device_online = True
+            if not self._disable_available_check and not self._device_online:
+                self._device_online = True
             # Set latest status from device
             self._acOptions = self.SetAcOptions(self._acOptions, optionsToFetch, currentValues)
 
             # Overwrite status with our choices
-            if not (acOptions == {}):
+            if acOptions != {}:
                 self._acOptions = self.SetAcOptions(self._acOptions, acOptions)
 
             # Send any requested change, including on the first successful sync after a failed startup
@@ -758,7 +777,7 @@ class GreeClimate(ClimateEntity):
                     self.CIPHER = GetGCMCipher(self._encryption_key)
                     await self.SyncState()
             else:
-                _LOGGER.error("Encryption version %s is not implemented." % self.encryption_version)
+                _LOGGER.error(f"Encryption version {self.encryption_version} is not implemented.")
         else:
             await self.SyncState()
 
@@ -1008,7 +1027,7 @@ class GreeClimate(ClimateEntity):
                 await self.SyncState({"Pow": 1})
 
             # do nothing if temperature is none
-            if not (self._acOptions["Pow"] == 0):
+            if self._acOptions["Pow"] != 0:
                 # do nothing if HVAC is switched off
 
                 SetTem, TemRec = self._encode_setpoint(target_temperature)
@@ -1025,7 +1044,7 @@ class GreeClimate(ClimateEntity):
 
     async def async_set_swing_mode(self, swing_mode):
         """Set swing mode."""
-        if not (self._acOptions["Pow"] == 0):
+        if self._acOptions["Pow"] != 0:
             # do nothing if HVAC is switched off
             try:
                 sw_up_dn = MODES_MAPPING.get("SwUpDn").get(swing_mode)
@@ -1038,7 +1057,7 @@ class GreeClimate(ClimateEntity):
 
     async def async_set_swing_horizontal_mode(self, swing_horizontal_mode):
         """Set horizontal swing mode."""
-        if not (self._acOptions["Pow"] == 0):
+        if self._acOptions["Pow"] != 0:
             # do nothing if HVAC is switched off
             try:
                 swing_lf_rig = MODES_MAPPING.get("SwingLfRig").get(swing_horizontal_mode)
@@ -1052,7 +1071,7 @@ class GreeClimate(ClimateEntity):
     async def async_set_fan_mode(self, fan):
         """Set fan mode."""
         # Set the fan mode.
-        if not (self._acOptions["Pow"] == 0):
+        if self._acOptions["Pow"] != 0:
             try:
                 wd_spd = MODES_MAPPING.get("WdSpd").get(fan)
 
@@ -1091,9 +1110,8 @@ class GreeClimate(ClimateEntity):
             c.update({"Pow": 1, "Mod": mod})
             if hasattr(self, "_auto_light") and self._auto_light:
                 c.update({"Lig": 1})
-            if hasattr(self, "_auto_xfan") and self._auto_xfan:
-                if (hvac_mode == HVACMode.COOL) or (hvac_mode == HVACMode.DRY):
-                    c.update({"Blo": 1})
+            if hasattr(self, "_auto_xfan") and self._auto_xfan and hvac_mode in (HVACMode.COOL, HVACMode.DRY):
+                c.update({"Blo": 1})
         # Clear smart 8°C in the same command so the device never reports StHt=1 outside heat
         if self._stht_smart_active and hvac_mode != HVACMode.HEAT:
             _LOGGER.info(f"{self._name}: Mode changed to {hvac_mode} - deactivating smart 8°C mode")
