@@ -54,6 +54,26 @@ Nothing runs on a draft. Once a pull request leaves draft, two checks run:
 
 A real merge, never a squash by default, so each commit keeps its place in history. The merge commit's subject is `PR #<N>: <PR title>` with no body, so `git log` on `develop` shows which pull request each merge brought in. `/pr-merge` owns the command.
 
+## Releases
+
+A release is a tag on `develop`; there are no release branches. The version is the `version` in
+`custom_components/gree_comfort/manifest.json`, SemVer, and a tag matches it exactly.
+
+```
+release/v1.1.2-b01    # a build deployed to a live Home Assistant for testing, internal only
+v1.1.2                # the same build accepted after live testing, published as a GitHub Release
+```
+
+- **A test build is tagged when it is deployed**, `-b01` first and the iteration incremented for a
+  rebuild of the same version. These tags are never published as releases.
+- **An accepted build is tagged `v<version>`** and published as a GitHub Release, because HACS reads
+  the version its users see from the release's tag name. Its notes list the pull requests merged
+  since the previous release, grouped as fixes, changes and housekeeping, since there is no
+  CHANGELOG.
+- **A tag always points at exactly what was tested**: the tagged commit's integration matches the
+  deployed copy byte for byte.
+- Never reuse a tag. `/release-tag` owns the procedure.
+
 ## Build and verify
 
 ```bash

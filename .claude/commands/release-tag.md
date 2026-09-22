@@ -12,23 +12,24 @@ GitHub Release.
 
 ## What each tag means
 
-- **`release/v<version>-b<NN>`**, a build deployed to the live Home Assistant for testing.
-- **`release/v<version>-Final`**, a build accepted after live testing.
+- **`release/v<version>-b<NN>`**, an internal marker for a build deployed to the live Home
+  Assistant for testing. Never published as a GitHub Release.
+- **`v<version>`**, a build accepted after live testing, published as a GitHub Release. HACS
+  reads the version its users see from this tag name, which is why it carries no prefix.
 
 ## Steps
 
 1. Parse `$ARGUMENTS` for the type. If ambiguous, ask.
    - `beta <version> [iteration]` → `release/v<version>-b<NN>` (default `b01`)
-   - `final <version>` → `release/v<version>-Final`
+   - `final <version>` → `v<version>`, plus a GitHub Release
 2. Verify the state:
-   - `git status --short --branch`: on `develop`, clean (untracked `CLAUDE.md` is expected),
-     not behind `origin/develop`.
+   - `git status --short --branch`: on `develop`, clean, not behind `origin/develop`.
    - `git log --oneline -3`: the commit being tagged looks right.
    - The `version` in `custom_components/gree_comfort/manifest.json` equals `<version>`.
-   - `git tag -l "release/v<version>-*"`: the tag does not exist yet. Never reuse a tag.
+   - `git tag -l "release/v<version>-*" "v<version>"`: the tag does not exist yet. Never reuse a tag.
 3. **Confirm the tag matches what is deployed.** A tag records what ran live, so the tagged
    commit's integration must be byte-identical to the deployed copy. The deployed location
-   is machine-specific and recorded in the local `CLAUDE.md`, never in this repository:
+   is machine-specific and recorded in the git-ignored `CLAUDE.local.md`, never in this repository:
    ```
    diff -rq --exclude __pycache__ --exclude .DS_Store \
      custom_components/gree_comfort <deployed>/custom_components/gree_comfort
@@ -48,8 +49,8 @@ GitHub Release.
 ## Tag format reference
 
 ```
-release/v1.1.2-b01     # deployed for live testing
-release/v1.1.2-Final   # accepted after live testing
+release/v1.1.2-b01     # deployed for live testing, internal only
+v1.1.2                 # accepted after live testing, a GitHub Release
 ```
 
 ## Hard rules
