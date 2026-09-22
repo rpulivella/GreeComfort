@@ -12,7 +12,7 @@ This version extends the base Gree integration with:
 - ✅ **Smart 8°C Mode**: Auto frost protection for Away/Sleep heat presets after configurable threshold (default 60 min)
 - ✅ **Cycle Management**: Optional compressor protection with configurable on/off times
 - ✅ **HVAC Action Tracking**: Real-time heating/cooling/idle/drying/fan/off status
-- ✅ **Smart Temperature Handling**: Auto-detects °F/°C preference with proper delta conversion
+- ✅ **Native Temperature Units**: Reports °C and Home Assistant converts to your unit system, including temperature deltas
 - ✅ **Full Persistence**: All settings survive restarts
 
 ## Based On
@@ -263,13 +263,13 @@ Settings → Devices & Services → Gree Comfort → Configure
 
 ### Smart 8°C Mode
 
-When Away or Sleep preset is active in **heating mode**, the integration can automatically engage the device's built-in 8°C frost protection (`StHt`) after a configurable time threshold. This is useful when you leave home or go to sleep and want the unit to drop to 8°C/46.4°F for energy savings once enough time has passed.
+When Away or Sleep preset is active in **heating mode**, the integration can automatically engage the device's built-in 8°C frost protection (`StHt`) after a configurable time threshold. This is useful when you leave home or go to sleep and want the unit to drop to 8°C/46°F for energy savings once enough time has passed.
 
 **How it works:**
 1. You set the preset to Away or Sleep with HVAC mode = Heat
 2. A timer starts
 3. After the threshold (default 60 min), `StHt=1` is sent to the device
-4. The device locks to 8°C (displayed as 8°C or 46.4°F in HA)
+4. The device locks to 8°C (displayed as 8°C or 46°F in HA)
 5. When you change preset to Home (or any non-eligible preset), `StHt=0` is sent and the preset temperature is restored
 
 **Configuration (on device page):**
@@ -353,23 +353,16 @@ automation:
 
 ## Temperature Unit Handling
 
-The integration intelligently handles temperature units:
+Every temperature is held in °C, the unit the device uses, and Home Assistant converts it to your unit system for display and for service calls.
 
 ### Absolute Temperatures
-Preset temperatures are stored internally in Celsius and converted for display:
-- If your system uses °F: Values display in Fahrenheit
-- If your system uses °C: Values display in Celsius
-- Conversion: `°F = (°C × 9/5) + 32`
+The climate entity, the preset temperature numbers and the temperature sensors report native °C with a temperature device class, so Home Assistant displays them in °F or °C to match your unit system. When your system uses °F, setpoints are sent to the unit as whole °F, so the unit's own display matches Home Assistant.
 
 ### Temperature Deltas
-Idle tolerance is a delta (±) value and uses delta conversion without offset:
-- If your system uses °F: Delta displayed in Fahrenheit degrees
-- If your system uses °C: Delta displayed in Celsius degrees
-- Conversion: `°F_delta = °C_delta × 9/5` (no +32 offset)
+The Eco Shutoff satisfied margin and re-engage delta are differences rather than temperatures, and use the temperature-delta device class. They display in your unit system and convert without the +32 offset: a 2.5°C margin shows as 4.5°F, not 36.5°F.
 
-This ensures proper behavior. For example:
-- Idle tolerance of 1°C = 1.8°F (not 33.8°F)
-- Idle tolerance of 2°F = 1.1°C (not -16.7°C)
+### Changing the Unit System
+Saved number values record their unit, so switching between °F and °C converts them instead of misreading them.
 
 ## Troubleshooting
 

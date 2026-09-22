@@ -9,16 +9,17 @@ from dataclasses import dataclass
 
 # Home Assistant imports
 from homeassistant.components.number import (
-    NumberEntity,
+    NumberDeviceClass,
     NumberEntityDescription,
     NumberMode,
+    RestoreNumber,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util.unit_conversion import TemperatureConverter, TemperatureDeltaConverter
 
 # Local imports
 from .const import DEFAULT_TARGET_TEMP_STEP, MIN_TEMP_C, MAX_TEMP_C
@@ -55,6 +56,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("home", {}).get("heat", 20),
         set_fn=lambda device, value: device._preset_temps.get("home", {}).update({"heat": value}),
@@ -69,6 +71,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("home", {}).get("cool", 24),
         set_fn=lambda device, value: device._preset_temps.get("home", {}).update({"cool": value}),
@@ -83,6 +86,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("sleep", {}).get("heat", 17),
         set_fn=lambda device, value: device._preset_temps.get("sleep", {}).update({"heat": value}),
@@ -97,6 +101,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("sleep", {}).get("cool", 26),
         set_fn=lambda device, value: device._preset_temps.get("sleep", {}).update({"cool": value}),
@@ -111,6 +116,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("away", {}).get("heat", 15),
         set_fn=lambda device, value: device._preset_temps.get("away", {}).update({"heat": value}),
@@ -125,6 +131,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=MAX_TEMP_C,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE,
         mode=NumberMode.BOX,
         value_fn=lambda device: device._preset_temps.get("away", {}).get("cool", 28),
         set_fn=lambda device, value: device._preset_temps.get("away", {}).update({"cool": value}),
@@ -139,6 +146,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=5.0,
         native_step=0.5,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE_DELTA,
         mode=NumberMode.SLIDER,
         value_fn=lambda device: getattr(device, "_eco_shutoff_satisfied_margin", 1.5),
         set_fn=lambda device, value: setattr(device, "_eco_shutoff_satisfied_margin", value),
@@ -153,6 +161,7 @@ NUMBERS: tuple[GreeNumberEntityDescription, ...] = (
         native_max_value=3.0,
         native_step=0.1,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=NumberDeviceClass.TEMPERATURE_DELTA,
         mode=NumberMode.SLIDER,
         value_fn=lambda device: getattr(device, "_eco_shutoff_reengage_delta", 0.5),
         set_fn=lambda device, value: setattr(device, "_eco_shutoff_reengage_delta", value),
@@ -199,153 +208,136 @@ async def async_setup_entry(
     async_add_entities(GreeNumberEntity(hass, entry, description) for description in NUMBERS)
 
 
-class GreeNumberEntity(GreeEntity, NumberEntity, RestoreEntity):
-    """Defines a Gree number entity."""
+class GreeNumberEntity(GreeEntity, RestoreNumber):
+    """Defines a Gree number entity.
+
+    Values are held internally in °C. Absolute temperatures report native °C and HA converts
+    them; deltas report in the HA unit because HA does not pick a display unit for deltas.
+    """
 
     entity_description: GreeNumberEntityDescription
 
     def __init__(self, hass, entry, description: GreeNumberEntityDescription) -> None:
-        # Store entry reference for later use
         self._entry = entry
         self._restored = False
-        self._use_fahrenheit = hass.config.units.temperature_unit == UnitOfTemperature.FAHRENHEIT
+        self._display_unit = hass.config.units.temperature_unit
+        self._internal_value = None
 
         super().__init__(hass, entry, description)
 
-        # Initialize with Celsius value from device (not converted)
         if self.entity_description.value_fn:
             try:
-                self._attr_native_value = self.entity_description.value_fn(self._device)
+                self._internal_value = self.entity_description.value_fn(self._device)
             except (AttributeError, KeyError, TypeError):
                 pass
 
+    def _is_delta_temp(self) -> bool:
+        return self.entity_description.device_class == NumberDeviceClass.TEMPERATURE_DELTA
+
+    def _delta_from_c(self, value: float) -> float:
+        return round(TemperatureDeltaConverter.convert(value, UnitOfTemperature.CELSIUS, self._display_unit), 1)
+
+    def _to_internal(self, value: float, unit: str | None) -> float:
+        """Convert a value in the given unit to the internal °C representation."""
+        device_class = self.entity_description.device_class
+        if device_class == NumberDeviceClass.TEMPERATURE:
+            return round(TemperatureConverter.convert(value, unit or UnitOfTemperature.CELSIUS, UnitOfTemperature.CELSIUS), 2)
+        if device_class == NumberDeviceClass.TEMPERATURE_DELTA:
+            return round(TemperatureDeltaConverter.convert(value, unit or UnitOfTemperature.CELSIUS, UnitOfTemperature.CELSIUS), 2)
+        return value
+
     @property
     def native_unit_of_measurement(self):
-        """Return the unit based on user preference for temperature entities."""
-        if self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            return UnitOfTemperature.FAHRENHEIT if self._use_fahrenheit else UnitOfTemperature.CELSIUS
+        if self._is_delta_temp():
+            return self._display_unit
         return self.entity_description.native_unit_of_measurement
-
-    _DELTA_TEMP_KEYS = frozenset({
-        "eco_shutoff_satisfied_margin",
-        "eco_shutoff_reengage_delta",
-    })
-
-    def _is_delta_temp(self):
-        return self.entity_description.property_key in self._DELTA_TEMP_KEYS
 
     @property
     def native_min_value(self):
-        """Return min value, converted if needed."""
-        min_val = self.entity_description.native_min_value
-        if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self._is_delta_temp():
-                return round(min_val * 9.0 / 5.0, 1)
-            else:
-                return round(min_val * 9.0 / 5.0 + 32.0, 1)
-        return min_val
+        # float() because HA rounds converted bounds to the native value's decimal places
+        value = float(self.entity_description.native_min_value)
+        return self._delta_from_c(value) if self._is_delta_temp() else value
 
     @property
     def native_max_value(self):
-        """Return max value, converted if needed."""
-        max_val = self.entity_description.native_max_value
-        if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self._is_delta_temp():
-                return round(max_val * 9.0 / 5.0, 1)
-            else:
-                return round(max_val * 9.0 / 5.0 + 32.0, 1)
-        return max_val
+        value = float(self.entity_description.native_max_value)
+        return self._delta_from_c(value) if self._is_delta_temp() else value
 
     @property
     def native_step(self):
-        """Return step value, converted if needed."""
-        step = self.entity_description.native_step
-        if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            # Step is always a delta
-            return round(step * 9.0 / 5.0, 1)
-        return step
+        value = self.entity_description.native_step
+        return self._delta_from_c(value) if self._is_delta_temp() else value
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
-        if self.entity_description.restore_state:
+        if not self.entity_description.restore_state:
+            return
+
+        # RestoreNumber data records its unit; older RestoreEntity states fall back to the state's unit attribute
+        last_data = await self.async_get_last_number_data()
+        if last_data is not None and last_data.native_value is not None:
+            value, unit = last_data.native_value, last_data.native_unit_of_measurement
+        else:
             last_state = await self.async_get_last_state()
-            if last_state is not None and last_state.state not in ["unknown", "unavailable"]:
-                try:
-                    restored_value = float(last_state.state)
+            if last_state is None or last_state.state in ("unknown", "unavailable"):
+                return
+            try:
+                value = float(last_state.state)
+            except (ValueError, TypeError):
+                return
+            unit = last_state.attributes.get("unit_of_measurement")
 
-                    if (self._use_fahrenheit and
-                            self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS and
-                            self._is_delta_temp()):
-                        # Stored value is in °F-delta units; convert back to °C-delta for internal storage.
-                        restored_value = restored_value * 5.0 / 9.0
-                    elif (self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS and
-                            restored_value > MAX_TEMP_C):
-                        # Migrate old absolute Fahrenheit values to Celsius (stored values > 30).
-                        restored_value = (restored_value - 32.0) * 5.0 / 9.0
+        try:
+            restored_value = self._to_internal(value, unit)
+        except (ValueError, TypeError) as err:
+            _LOGGER.warning(f"Could not restore {self.entity_id} from {value} {unit}: {err}")
+            return
 
-                    # Validate against raw Celsius values from entity_description
-                    min_c = self.entity_description.native_min_value
-                    max_c = self.entity_description.native_max_value
-                    if min_c <= restored_value <= max_c:
-                        # Use set_fn to properly update the device state
-                        if self.entity_description.set_fn:
-                            self.entity_description.set_fn(self._device, restored_value)
-                        else:
-                            setattr(self._device, f"_{self.entity_description.property_key}", restored_value)
-                        self._attr_native_value = restored_value
-                        self._restored = True
-                except (ValueError, TypeError):
-                    pass
+        min_c = self.entity_description.native_min_value
+        max_c = self.entity_description.native_max_value
+        if not min_c <= restored_value <= max_c:
+            _LOGGER.warning(f"Restored {self.entity_id} value {restored_value} outside {min_c}..{max_c}, keeping default")
+            return
+
+        if self.entity_description.set_fn:
+            self.entity_description.set_fn(self._device, restored_value)
+        else:
+            setattr(self._device, f"_{self.entity_description.property_key}", restored_value)
+        self._internal_value = restored_value
+        self._restored = True
 
     @property
     def native_value(self):
-        """Return the current value, converted if needed."""
-        if self.entity_description.restore_state:
-            value = getattr(self, "_attr_native_value", self.entity_description.value_fn(self._device))
+        if self.entity_description.restore_state and self._internal_value is not None:
+            value = self._internal_value
         else:
             value = self.entity_description.value_fn(self._device)
-
-        # Convert from stored Celsius to Fahrenheit if needed
-        if value is not None and self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self._is_delta_temp():
-                return round(value * 9.0 / 5.0, 1)
-            else:
-                return round(value * 9.0 / 5.0 + 32.0, 1)
+        if value is not None and self._is_delta_temp():
+            return self._delta_from_c(value)
         return value
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value, converting from display unit to Celsius if needed."""
-        # Convert from Fahrenheit to Celsius if needed
-        celsius_value = value
-        if self._use_fahrenheit and self.entity_description.native_unit_of_measurement == UnitOfTemperature.CELSIUS:
-            if self._is_delta_temp():
-                celsius_value = value * 5.0 / 9.0
-            else:
-                celsius_value = (value - 32.0) * 5.0 / 9.0
+        """Set new value; HA has already converted absolute temperatures to native °C."""
+        internal_value = self._to_internal(value, self.native_unit_of_measurement)
 
         if self.entity_description.set_fn:
-            await self.hass.async_add_executor_job(self.entity_description.set_fn, self._device, celsius_value)
+            await self.hass.async_add_executor_job(self.entity_description.set_fn, self._device, internal_value)
 
         # If this is a preset temperature and the preset is currently active, re-apply it
         if self.entity_description.property_key.startswith("preset_"):
-            # Extract preset name and mode (heat/cool) from property_key
             # e.g., "preset_sleep_heat" -> preset="sleep", mode="heat"
             parts = self.entity_description.property_key.split("_")
             if len(parts) >= 3:
-                preset_name = parts[1]  # "home", "sleep", or "away"
-                temp_mode = parts[2]    # "heat" or "cool"
+                preset_name = parts[1]
+                temp_mode = parts[2]
 
-                # Check if this preset is currently active and matches the mode
                 from homeassistant.components.climate import HVACMode
                 if (self._device._preset_mode == preset_name and
                     not self._device._manual_override and
                     ((temp_mode == "heat" and self._device.hvac_mode == HVACMode.HEAT) or
                      (temp_mode == "cool" and self._device.hvac_mode == HVACMode.COOL))):
-                    # Re-apply the preset temperature immediately
                     await self._device._apply_preset_temperature()
-                    _LOGGER.info(f"Re-applied {preset_name} {temp_mode} temperature after change to {celsius_value}°C")
+                    _LOGGER.info(f"Re-applied {preset_name} {temp_mode} temperature after change to {internal_value}°C")
 
-        if self.entity_description.restore_state:
-            # Store the value internally in Celsius
-            self._attr_native_value = celsius_value
+        self._internal_value = internal_value
         self.async_write_ha_state()

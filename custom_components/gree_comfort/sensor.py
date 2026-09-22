@@ -17,6 +17,7 @@ from homeassistant.const import (
     PERCENTAGE,
     UnitOfTemperature,
 )
+from homeassistant.util.unit_conversion import TemperatureConverter
 
 
 # Local imports
@@ -27,26 +28,21 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _eco_shutoff_temp_value(device) -> float | None:
-    """Read temperature from the configured Eco Shutoff auxiliary sensor."""
+    """Read the auxiliary sensor as native °C; HA converts it for display."""
     sensor_id = getattr(device, "_eco_shutoff_sensor", None)
     if not sensor_id:
         return None
     state = device.hass.states.get(sensor_id)
     if state is None or state.state in ("unavailable", "unknown"):
         return None
+    unit = state.attributes.get("unit_of_measurement")
+    if unit not in TemperatureConverter.VALID_UNITS:
+        return None
     try:
-        val = float(state.state)
+        value = float(state.state)
     except (ValueError, TypeError):
         return None
-    # Convert to match the climate entity's display unit
-    sensor_unit = state.attributes.get("unit_of_measurement", "°C")
-    if device.temperature_unit == UnitOfTemperature.CELSIUS:
-        if sensor_unit in (UnitOfTemperature.FAHRENHEIT, "°F"):
-            val = (val - 32.0) * 5.0 / 9.0
-    else:
-        if sensor_unit not in (UnitOfTemperature.FAHRENHEIT, "°F"):
-            val = val * 9.0 / 5.0 + 32.0
-    return round(val, 1)
+    return TemperatureConverter.convert(value, unit, UnitOfTemperature.CELSIUS)
 
 
 @dataclass

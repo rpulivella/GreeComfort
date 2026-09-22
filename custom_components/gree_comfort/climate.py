@@ -45,9 +45,7 @@ from .const import (
     DEFAULT_SWING_HORIZONTAL_MODES,
     DEFAULT_TARGET_TEMP_STEP,
     MIN_TEMP_C,
-    MIN_TEMP_F,
     MAX_TEMP_C,
-    MAX_TEMP_F,
     MODES_MAPPING,
     TEMSEN_OFFSET,
     CONF_HVAC_MODES,
@@ -211,9 +209,9 @@ class GreeClimate(ClimateEntity):
         self._target_temperature = None
         # Initialize target temperature step with default value (will be overridden by number entity when available)
         self._target_temperature_step = DEFAULT_TARGET_TEMP_STEP
-        # Device uses a combination of Celsius + a set bit for Fahrenheit, so the integration needs to be aware of the units.
-        self._unit_of_measurement = hass.config.units.temperature_unit
-        _LOGGER.info(f"{self._name}: Unit of measurement: {self._unit_of_measurement}")
+        # Entity reports native °C; HA converts for display. The HA unit only picks the setpoint encoding.
+        self._unit_of_measurement = UnitOfTemperature.CELSIUS
+        self._use_fahrenheit_setpoints = hass.config.units.temperature_unit == UnitOfTemperature.FAHRENHEIT
 
         self._hvac_modes = hvac_modes
         self._hvac_mode = HVACMode.OFF
@@ -439,27 +437,29 @@ class GreeClimate(ClimateEntity):
         result = await FetchResult(cipher, self._ip_addr, self._port, sentJsonPayload, encryption_version=self.encryption_version)
         _LOGGER.debug(f"{self._name}: Command sent successfully: {str(result)}")
 
+    def _encode_setpoint(self, temp_c: float) -> tuple[int, int]:
+        """Encode a °C setpoint as SetTem/TemRec; °F users get whole-°F setpoints on the unit."""
+        if self._use_fahrenheit_setpoints:
+            temp_f = round(TemperatureConverter.convert(temp_c, UnitOfTemperature.CELSIUS, UnitOfTemperature.FAHRENHEIT))
+            SetTem, TemRec = gree_f_to_c(desired_temp_f=temp_f)
+        else:
+            SetTem, TemRec = encode_temp_c(T=temp_c)
+        return int(SetTem), int(TemRec)
+
+    def _decode_setpoint_c(self, SetTem, TemRec) -> float:
+        """Decode SetTem/TemRec to °C, inverting the encoding chosen in _encode_setpoint."""
+        if self._use_fahrenheit_setpoints:
+            temp_f = gree_c_to_f(SetTem=SetTem, TemRec=TemRec)
+            return TemperatureConverter.convert(temp_f, UnitOfTemperature.FAHRENHEIT, UnitOfTemperature.CELSIUS)
+        return decode_temp_c(SetTem=SetTem, TemRec=TemRec)
+
     def UpdateHATargetTemperature(self):
         # Sync set temperature to HA. If 8℃ heating is active we set the temp in HA to 8℃ so that it shows the same as the AC display.
         if self._acOptions["StHt"] and (int(self._acOptions["StHt"]) == 1):
-            if self._unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
-                self._target_temperature = (8.0 * 9.0 / 5.0) + 32.0  # 8°C → °F
-            else:
-                self._target_temperature = 8
-            _LOGGER.debug(f"{self._name}: Target temperature set to {self._target_temperature}{self._unit_of_measurement} for 8°C heating mode")
+            self._target_temperature = 8.0
+            _LOGGER.debug(f"{self._name}: Target temperature set to {self._target_temperature}°C for 8°C heating mode")
         else:
-            temp_c = decode_temp_c(SetTem=self._acOptions["SetTem"], TemRec=self._acOptions["TemRec"])  # takes care of 1/2 degrees
-            temp_f = gree_c_to_f(SetTem=self._acOptions["SetTem"], TemRec=self._acOptions["TemRec"])
-
-            if self._unit_of_measurement == "°C":
-                display_temp = temp_c
-            elif self._unit_of_measurement == "°F":
-                display_temp = temp_f
-            else:
-                display_temp = temp_c  # default to deg c
-                _LOGGER.error(f"{self._name}: Unknown unit of measurement: {self._unit_of_measurement}")
-
-            self._target_temperature = display_temp
+            self._target_temperature = self._decode_setpoint_c(self._acOptions["SetTem"], self._acOptions["TemRec"])
 
             _LOGGER.debug(f"{self._name}: Target temperature set to {self._target_temperature}{self._unit_of_measurement}")
 
@@ -529,14 +529,7 @@ class GreeClimate(ClimateEntity):
 
                 _LOGGER.debug(f"method UpdateHACurrentTemperature: User has chosen an offset ({self._temp_sensor_offset})")
 
-            temp_f = gree_c_to_f(SetTem=temp_c, TemRec=0)  # Convert to Fahrenheit using TemRec bit
-
-            if self._unit_of_measurement == "°C":
-                self._current_temperature = temp_c
-            elif self._unit_of_measurement == "°F":
-                self._current_temperature = temp_f
-            else:
-                _LOGGER.error("Unknown unit of measurement: %s" % self._unit_of_measurement)
+            self._current_temperature = temp_c
 
             _LOGGER.debug(f"{self._name}: UpdateHACurrentTemperature: HA current temperature set with device built-in temperature sensor state: {self._current_temperature}{self._unit_of_measurement}")
 
@@ -558,14 +551,7 @@ class GreeClimate(ClimateEntity):
 
                 _LOGGER.debug(f"method UpdateHAOutsideTemperature: User has chosen an offset ({self._temp_sensor_offset})")
 
-            temp_f = gree_c_to_f(SetTem=temp_c, TemRec=0)  # Convert to Fahrenheit using TemRec bit
-
-            if self._unit_of_measurement == "°C":
-                self._current_outside_temperature = temp_c
-            elif self._unit_of_measurement == "°F":
-                self._current_outside_temperature = temp_f
-            else:
-                _LOGGER.error("Unknown unit of measurement for outside temperature: %s" % self._unit_of_measurement)
+            self._current_outside_temperature = temp_c
 
             _LOGGER.debug(f"{self._name}: UpdateHAOutsideTemperature: HA outside temperature set with device built-in outside temperature sensor state: {self._current_outside_temperature}{self._unit_of_measurement}")
 
@@ -793,25 +779,11 @@ class GreeClimate(ClimateEntity):
 
     @property
     def min_temp(self):
-        if self._unit_of_measurement == "°C":
-            MIN_TEMP = MIN_TEMP_C
-        else:
-            MIN_TEMP = MIN_TEMP_F
-
-        _LOGGER.debug(f"{self._name}: min_temp() = {MIN_TEMP}")
-        # Return the minimum temperature.
-        return MIN_TEMP
+        return MIN_TEMP_C
 
     @property
     def max_temp(self):
-        if self._unit_of_measurement == "°C":
-            MAX_TEMP = MAX_TEMP_C
-        else:
-            MAX_TEMP = MAX_TEMP_F
-
-        _LOGGER.debug(f"{self._name}: max_temp() = {MAX_TEMP}")
-        # Return the maximum temperature.
-        return MAX_TEMP
+        return MAX_TEMP_C
 
     @property
     def target_temperature(self):
@@ -1092,14 +1064,7 @@ class GreeClimate(ClimateEntity):
             if not (self._acOptions["Pow"] == 0):
                 # do nothing if HVAC is switched off
 
-                if self._unit_of_measurement == "°C":
-                    SetTem, TemRec = encode_temp_c(T=target_temperature)  # takes care of 1/2 degrees
-                elif self._unit_of_measurement == "°F":
-                    SetTem, TemRec = gree_f_to_c(desired_temp_f=target_temperature)
-                else:
-                    _LOGGER.error("Unable to set temperature. Units not set to °C or °F")
-                    return
-
+                SetTem, TemRec = self._encode_setpoint(target_temperature)
                 await self.SyncState({"SetTem": int(SetTem), "TemRec": int(TemRec)})
                 _LOGGER.debug(f"{self._name}: async_set_temperature: Set Temp to {target_temperature}{self._unit_of_measurement} ->  SyncState with SetTem={SetTem}, SyncState with TemRec={TemRec}")
 
@@ -1182,6 +1147,11 @@ class GreeClimate(ClimateEntity):
             if hasattr(self, "_auto_xfan") and self._auto_xfan:
                 if (hvac_mode == HVACMode.COOL) or (hvac_mode == HVACMode.DRY):
                     c.update({"Blo": 1})
+        # Clear smart 8°C in the same command so the device never reports StHt=1 outside heat
+        if self._stht_smart_active and hvac_mode != HVACMode.HEAT:
+            _LOGGER.info(f"{self._name}: Mode changed to {hvac_mode} - deactivating smart 8°C mode")
+            self._stht_smart_active = False
+            c.update({"StHt": 0})
         await self.SyncState(c)
         await self._save_persistent_state()
 
@@ -1212,18 +1182,11 @@ class GreeClimate(ClimateEntity):
             # Don't change temp for dry/fan_only modes
             return
 
-        # Convert to user's display units if needed
-        if self._unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
-            # Simple C to F conversion for display
-            target = round((target_c * 9.0 / 5.0) + 32.0)
-        else:
-            target = target_c
-
-        _LOGGER.info(f"{self._name}: Applying preset {self._preset_mode} temp: {target}{self._unit_of_measurement}")
+        _LOGGER.info(f"{self._name}: Applying preset {self._preset_mode} temp: {target_c:.2f}°C")
 
         # Set flag to prevent this from triggering manual override
         self._applying_preset = True
-        await self.async_set_temperature(temperature=target)
+        await self.async_set_temperature(temperature=target_c)
         self._applying_preset = False
 
     async def _check_eco_shutoff(self):
@@ -1298,15 +1261,10 @@ class GreeClimate(ClimateEntity):
             return
         aux_temp = TemperatureConverter.convert(aux_temp, sensor_unit, UnitOfTemperature.CELSIUS)
 
-        # --- Effective setpoint in °C (_target_temperature is in the display unit) ---
-        if self._stht_smart_active:
-            effective_setpoint = 8.0
-        else:
-            if self._target_temperature is None:
-                return
-            effective_setpoint = TemperatureConverter.convert(
-                self._target_temperature, self._unit_of_measurement, UnitOfTemperature.CELSIUS
-            )
+        # --- Effective setpoint ---
+        effective_setpoint = 8.0 if self._stht_smart_active else self._target_temperature
+        if effective_setpoint is None:
+            return
 
         # --- Satisfaction and re-engage thresholds ---
         if self.hvac_mode == HVACMode.HEAT:
@@ -1597,24 +1555,17 @@ class GreeClimate(ClimateEntity):
             _LOGGER.debug(f"{self._name}: Can't determine expected temp - manual override = False")
             return
 
-        # Get current device temperature in Celsius
-        current_temp = self._target_temperature
-        if current_temp is None:
+        device_pair = (self._acOptions.get("SetTem"), self._acOptions.get("TemRec"))
+        if device_pair[0] is None:
             self._manual_override = False
-            _LOGGER.debug(f"{self._name}: No current temp - manual override = False")
+            _LOGGER.debug(f"{self._name}: No device setpoint - manual override = False")
             return
 
-        # Convert to Celsius if needed for comparison
-        if self._unit_of_measurement == UnitOfTemperature.FAHRENHEIT:
-            current_temp_c = (current_temp - 32.0) * 5.0 / 9.0
-        else:
-            current_temp_c = current_temp
-
-        # Compare (allow small tolerance for rounding)
-        temp_diff = abs(current_temp_c - expected_temp_c)
-        if temp_diff > 0.2:  # More than 0.2°C difference
+        # Compare the exact device encoding so rounding can never cause a false override
+        expected_pair = self._encode_setpoint(expected_temp_c)
+        if (int(device_pair[0]), int(device_pair[1] or 0)) != expected_pair:
             self._manual_override = True
-            _LOGGER.info(f"{self._name}: Manual override detected on startup - Device: {current_temp_c:.1f}°C, Expected: {expected_temp_c:.1f}°C (diff: {temp_diff:.2f}°C)")
+            _LOGGER.info(f"{self._name}: Manual override detected - device SetTem/TemRec {device_pair}, expected {expected_pair} for {expected_temp_c:.2f}°C")
         else:
             self._manual_override = False
             _LOGGER.debug(f"{self._name}: Temp matches preset - manual override = False")
