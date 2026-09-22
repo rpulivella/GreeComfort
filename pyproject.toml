@@ -1,0 +1,18 @@
+# Tool configuration only: GreeComfort is a Home Assistant integration, not a Python package.
+[project]
+name = "gree-comfort"
+version = "0.0.0"
+# The floor Home Assistant 2026.8 itself requires; CI reads it through python-version-file.
+requires-python = ">=3.14.2"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["custom_components/gree_comfort"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

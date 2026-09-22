@@ -21,8 +21,8 @@ _2–3 sentences describing what this PR achieves and why._
 <!-- An unchecked box means NOT DONE. An item that cannot apply moves to the end of this
      list with NA in place of its checkbox, so the record shows it was considered. -->
 - [ ] Self-review done
-- [ ] All modified `.py` files pass `python3 -m py_compile`
-- [ ] All modified `.json` files are valid JSON
+- [ ] Preflight passes locally (`.venv/bin/python3 scripts/pr-preflight-check.py`)
+- [ ] Tests added or updated for the risky logic this changes
 - [ ] Entity registry migrations added for any renamed or removed entities
 - [ ] Translation strings added for every new entity key
 - [ ] No credentials, tokens, secrets, or house-specific paths in the diff

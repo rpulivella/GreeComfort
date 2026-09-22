@@ -1,7 +1,4 @@
 {
-  "integration": {
-    "icon": "mdi:air-conditioner"
-  },
   "entity": {
     "climate": {
       "gree": {
@@ -12,7 +9,6 @@
               "auto": "mdi:fan-auto",
               "low": "mdi:fan-chevron-down",
               "medium_low": "mdi:fan-minus",
-              "medium": "mdi:fan",
               "medium_high": "mdi:fan-plus",
               "high": "mdi:fan-chevron-up",
               "turbo": "mdi:weather-windy",
@@ -22,8 +18,7 @@
           "swing_horizontal_mode": {
             "default": "mdi:arrow-oscillating",
             "state": {
-              "default": "mdi:arrow-oscillating-off",
-              "swing_full": "mdi:arrow-oscillating"
+              "default": "mdi:arrow-oscillating-off"
             }
           },
           "swing_mode": {
