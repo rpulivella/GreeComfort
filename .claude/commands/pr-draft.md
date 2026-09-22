@@ -13,7 +13,7 @@ Create a pull request from the current feature branch into `develop`.
 3. Run `git diff develop...HEAD --stat` to see what files changed.
 4. Check push status with `git status -sb`. If the branch is ahead of remote, push first with `git push`.
 5. Read `pr_template.md` at the repo root.
-6. Fill the template. Rules:
+6. Fill the template. Its `<!-- -->` comments are instructions for the drafter; follow them and leave them out of the body. Rules:
    - **Title**: short imperative summary of what the branch adds/fixes — max 72 chars. Do not repeat the branch name verbatim.
    - **Branch**: fill in the current branch name.
    - **Intro paragraph**: 2–3 sentences from the commit log and diff describing what this PR achieves and why.
