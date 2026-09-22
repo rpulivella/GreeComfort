@@ -18,8 +18,7 @@
           "swing_horizontal_mode": {
             "default": "mdi:arrow-oscillating",
             "state": {
-              "default": "mdi:arrow-oscillating-off",
-              "swing_full": "mdi:arrow-oscillating"
+              "default": "mdi:arrow-oscillating-off"
             }
           },
           "swing_mode": {
