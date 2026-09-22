@@ -4,6 +4,7 @@ from __future__ import annotations
 
 # Standard library imports
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -258,6 +259,9 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
     @property
     def native_min_value(self):
         value = self.entity_description.native_min_value
+        if self._whole_degree_steps():
+            # A browser counts steps from the minimum, so it must itself be a whole degree
+            return float(math.ceil(self._from_c(value)))
         return self._from_c(value) if self._is_temperature() else value
 
     @property
@@ -268,10 +272,18 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
     @property
     def native_step(self):
         value = self.entity_description.native_step
+        if self._whole_degree_steps():
+            return 1.0
         if self.entity_description.device_class == NumberDeviceClass.TEMPERATURE:
-            # The unit takes whole °F setpoints, or half °C ones
-            return 1.0 if self._display_unit == UnitOfTemperature.FAHRENHEIT else value
+            return value
         return self._from_c(value) if self._is_temperature() else value
+
+    def _whole_degree_steps(self) -> bool:
+        """The unit takes whole °F setpoints, so °F presets step by whole degrees."""
+        return (
+            self.entity_description.device_class == NumberDeviceClass.TEMPERATURE
+            and self._display_unit == UnitOfTemperature.FAHRENHEIT
+        )
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
