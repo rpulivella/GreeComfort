@@ -15,7 +15,7 @@ class TempOffsetResolver:
 
     Note: This could be simplified by just using 40C as a max point
     for the unoffset case and a min point for the offset case. But
-    this doesn't account for the marginal cases around 40C as well.
+    this does not account for the marginal cases around 40C as well.
 
     Example:
 
@@ -45,7 +45,7 @@ class TempOffsetResolver:
             self._min_raw = raw
         if self._max_raw is None or raw > self._max_raw:
             self._max_raw = raw
-        self._evaluate()  # evaluate every time, so it can change it's mind as needed
+        self._evaluate()  # evaluate every time, so it can change its mind as needed
         return raw - self._offset if self._has_offset else raw
 
     def _evaluate(self) -> None:
@@ -108,7 +108,7 @@ def encode_temp_c(T):
     This "finds the closest multiple of 0.5" to T, then:
       n = round(T * 2)
       temp_int = n >> 1      (i.e. floor(n/2))
-      half_bit = n & 1       (1 if it's an odd half‐step)
+      half_bit = n & 1       (1 if it is an odd half‐step)
     """
     # 1) Compute "twice T" and round to nearest integer:
     #    math.floor(T * 2 + 0.5) is equivalent to rounding ties upward.

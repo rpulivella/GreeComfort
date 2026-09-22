@@ -122,7 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register domain service (guarded so it's only registered once)
+    # Register domain service (guarded so it is only registered once)
     if not hass.services.has_service(DOMAIN, "set_scheduled_preset"):
         async def handle_set_scheduled_preset(call):
             entity_id = call.data.get("entity_id")

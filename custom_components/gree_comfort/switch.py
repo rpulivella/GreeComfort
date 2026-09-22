@@ -93,7 +93,7 @@ async def _set_beeper(device, value: bool) -> None:
 async def _set_stht_smart(device, value: bool) -> None:
     setattr(device, "_stht_smart_enabled", value)
     if not value and getattr(device, "_stht_smart_active", False):
-        # Feature disabled while active — deactivate StHt immediately
+        # Feature disabled while active, deactivate StHt immediately
         setattr(device, "_stht_smart_active", False)
         setattr(device, "_preset_active_since", None)
         await device.SyncState({"StHt": 0})
@@ -106,7 +106,7 @@ async def _set_schedule_auto_release(device, value: bool) -> None:
 async def _set_eco_shutoff_enabled(device, value: bool) -> None:
     setattr(device, "_eco_shutoff_enabled", value)
     if not value and getattr(device, "_eco_shutoff_active", False):
-        # Feature disabled while holding unit off — restore power and persist so the
+        # Feature disabled while holding unit off, restore power and persist so the
         # Store no longer carries eco_shutoff_active: true across reloads.
         setattr(device, "_eco_shutoff_active", False)
         await device.SyncState({"Pow": 1})
@@ -278,7 +278,7 @@ class GreeSwitchEntity(GreeEntity, SwitchEntity, RestoreEntity):
                     else f"previous state was '{last_state.state}'"
                 )
                 _LOGGER.warning(
-                    "%s: %s for %s — defaulting to off",
+                    "%s: %s for %s, defaulting to off",
                     self._device._name,
                     reason,
                     self.entity_description.property_key,
