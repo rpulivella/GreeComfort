@@ -4,6 +4,9 @@ name = "gree-comfort"
 version = "0.0.0"
 # The floor Home Assistant 2026.8 itself requires; CI reads it through python-version-file.
 requires-python = ">=3.14.2"
+# Inherited from the upstream integration, which ships the GPL-3.0 text with no "or later" grant.
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

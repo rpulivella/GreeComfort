@@ -40,10 +40,10 @@ so subjects carry no bracketed id.
    untracked file is clearly intentional. When one file holds changes for two commits,
    stage a version with only the first change, commit, then restore the full file.
    **Never stage:**
-   - `CLAUDE.md`, gitignored and local-only in this repo
+   - `CLAUDE.local.md`, git-ignored and machine-specific (`CLAUDE.md` **is** committed)
    - `.claude/settings.local.json`, `.env`, `.dev.vars`, or anything with secrets
    - `__pycache__/`, `.venv/`, `*.egg-info/`, `dist/`, `build/`, `.pytest_cache/`
-   - anything under `workarea/` (scratch space) or `reference-original/` (local copy)
+   - anything under `workarea/` (scratch space)
 6. Before committing, run the preflight and stop if any gate fails:
    ```
    .venv/bin/python3 scripts/pr-preflight-check.py
@@ -106,6 +106,6 @@ chore: bump version to 1.1.0
 - NEVER exceed 60 characters.
 - NEVER commit on `develop` without asking.
 - NEVER use `--no-verify`. NEVER push without asking.
-- NEVER stage `CLAUDE.md`, secrets, build artifacts, `workarea/` or `reference-original/`.
+- NEVER stage `CLAUDE.local.md`, secrets, build artifacts or `workarea/`.
 
 $ARGUMENTS
