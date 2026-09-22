@@ -1,5 +1,7 @@
 """Sensors report native °C and HA converts them."""
 
+from pathlib import Path
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_component import async_update_entity
@@ -33,3 +35,13 @@ async def test_eco_temperature_ignores_a_sensor_without_a_temperature_unit(hass:
     eco_temp = entity_id(hass, "sensor", "eco_shutoff_temperature")
     await async_update_entity(hass, eco_temp)
     assert hass.states.get(eco_temp).state == "unknown"
+
+
+async def test_brand_images_are_served_from_the_integration(hass: HomeAssistant, setup_integration):
+    from homeassistant.loader import async_get_custom_components
+
+    await setup_integration()
+    integration = (await async_get_custom_components(hass))["gree_comfort"]
+    assert integration.has_branding
+    brand = Path(integration.file_path) / "brand"
+    assert (brand / "icon.png").is_file() and (brand / "logo.png").is_file()
