@@ -38,7 +38,7 @@ Every pull request opens as a **draft**, and nothing runs on GitHub while it is 
 
 1. Tests appropriate to the change exist and pass, and cover the risky logic it touches.
 2. The preflight passes: `scripts/pr-preflight-check.py` runs every gate in one pass (pytest, the
-   prose gate and the JSON gate) and reports them together.
+   prose gate, ruff and the JSON gate) and reports them together.
 
 `/pr-review-code` checks both, reviews the diff, and is the only thing that takes a pull request out of draft.
 

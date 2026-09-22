@@ -39,7 +39,11 @@ from .const import (
     DOMAIN,
     OPTION_KEYS,
 )
-from .gree_protocol import test_connection, discover_gree_devices, detect_device_encryption
+from .gree_protocol import (
+    detect_device_encryption,
+    discover_gree_devices,
+    test_connection,
+)
 
 _LOGGER = logging.getLogger(__name__)
 

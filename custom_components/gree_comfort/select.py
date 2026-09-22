@@ -14,15 +14,16 @@ from homeassistant.components.select import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers import entity_registry as er
+
+from .const import DOMAIN
 
 # Local imports
 from .entity import GreeEntity, GreeEntityDescription
-from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,9 +56,7 @@ def get_temperature_sensor_options(hass: HomeAssistant, entry_id: str | None = N
             continue
         if state.entity_id in own_entity_ids:
             continue
-        if state.attributes.get("device_class") == "temperature":
-            options.append(state.entity_id)
-        elif state.attributes.get("unit_of_measurement") in ["°C", "°F", "K"]:
+        if state.attributes.get("device_class") == "temperature" or state.attributes.get("unit_of_measurement") in ["°C", "°F", "K"]:
             options.append(state.entity_id)
 
     return options

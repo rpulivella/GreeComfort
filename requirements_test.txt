@@ -3,6 +3,8 @@ pytest-homeassistant-custom-component==0.13.357
 pytest-cov
 # The preflight script prints through rich.
 rich
+# The preflight script's lint gate.
+ruff>=0.16.5
 # The integration's own requirements, mirroring manifest.json.
 pycryptodome
 aiofiles

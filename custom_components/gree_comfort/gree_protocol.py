@@ -15,15 +15,15 @@ try:
 except ImportError:
     import json as simplejson
 from Crypto.Cipher import AES
+from homeassistant.components.network import async_get_ipv4_broadcast_addresses
 
 # Home Assistant imports
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_MAC
-from homeassistant.components.network import async_get_ipv4_broadcast_addresses
+from homeassistant.const import CONF_HOST, CONF_MAC, CONF_PORT
 
 # Local imports
 from .const import (
-    CONF_ENCRYPTION_VERSION,
     CONF_ENCRYPTION_KEY,
+    CONF_ENCRYPTION_VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -297,7 +297,7 @@ async def discover_gree_devices(hass, timeout=5):
                         _LOGGER.debug(f"Received response without pack from {addr}: {response}")
                 except Exception as e:
                     _LOGGER.debug(f"Could not parse response from {addr}: {e}")
-            except socket.timeout:
+            except TimeoutError:
                 break
     finally:
         sock.close()

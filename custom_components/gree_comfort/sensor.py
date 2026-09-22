@@ -8,9 +8,9 @@ from dataclasses import dataclass
 
 # Home Assistant imports
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorDeviceClass,
     SensorStateClass,
 )
 from homeassistant.const import (
@@ -18,7 +18,6 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.util.unit_conversion import TemperatureConverter
-
 
 # Local imports
 from .const import DOMAIN

@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
-    BinarySensorDeviceClass,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
