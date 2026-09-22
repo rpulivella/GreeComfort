@@ -17,7 +17,7 @@ gate in one pass (pytest, the prose gate and the JSON gate) and reports all of t
 run lists everything to fix rather than the first thing.
 
 **The preflight does not read the pull request itself**, so step 5 also reads the body
-against `pr_template.md`: every heading present, every checkbox checked or NA, no template
+against `.github/pull_request_template.md`: every heading present, every checkbox checked or NA, no template
 comment left behind.
 
 ## Steps

@@ -13,7 +13,8 @@ opens as a draft, so CI runs nothing until `/pr-review-code` promotes it.
 2. Run `git log develop..HEAD --oneline` to understand all commits in this branch.
 3. Run `git diff develop...HEAD --stat` to see what files changed.
 4. Check push status with `git status -sb`. If the branch is ahead of remote, push first with `git push`.
-5. Read `pr_template.md` at the repo root.
+5. Read `.github/pull_request_template.md`, which GitHub also pre-fills a web-opened pull
+   request with.
 6. Fill the template. Its `<!-- -->` comments are instructions for the drafter; follow them and leave them out of the body. Rules:
    - **Title**: short imperative summary of what the branch adds/fixes, max 72 chars. Do not repeat the branch name verbatim.
    - **Branch**: fill in the current branch name.
