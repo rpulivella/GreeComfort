@@ -28,7 +28,7 @@ comment left behind.
    none, and anything else means the question could not be asked at all. Those are three
    different facts. Stop if the PR is not a draft, and say so: it was promoted already.
 2. **Refuse on an unclean state.** Run `git status --short --branch` and stop if the tree
-   is dirty (untracked `CLAUDE.md` is expected) or the branch is ahead of its remote. The
+   is dirty or the branch is ahead of its remote. The
    preflight must run against exactly what the PR carries.
 3. **Run the preflight and stop if it fails:**
    ```

@@ -26,4 +26,4 @@ _2–3 sentences describing what this PR achieves and why._
 - [ ] Entity registry migrations added for any renamed or removed entities
 - [ ] Translation strings added for every new entity key
 - [ ] No credentials, tokens, secrets, or house-specific paths in the diff
-- [ ] `workarea/`, `reference-original/`, `CLAUDE.md` not staged
+- [ ] `workarea/`, `reference-original/`, `CLAUDE.local.md` not staged

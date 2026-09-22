@@ -17,7 +17,7 @@ it. GreeComfort has no ticket system, so there is no ticket to close and no boar
    and only one of them is "no pull request".
 2. **Refuse on an unclean state.** Run `git status --short --branch` and stop if either is
    true, saying which:
-   - the working tree is dirty (untracked `CLAUDE.md` is expected and does not count);
+   - the working tree is dirty;
    - the branch is `ahead` of its remote.
 
    Both merge a tree that differs from the one that was reviewed. Neither is waivable:
