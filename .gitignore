@@ -210,3 +210,7 @@ workarea/
 
 # Reference copy of upstream integration (kept locally for diffing only)
 reference-original/
+
+# Claude Code: CLAUDE.md is COMMITTED on purpose; machine-specific facts live in CLAUDE.local.md
+CLAUDE.local.md
+.claude/settings.local.json
