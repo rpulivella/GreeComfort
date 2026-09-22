@@ -27,13 +27,16 @@ it. GreeComfort has no ticket system, so there is no ticket to close and no boar
    on any check that is failing, pending or unreadable. "No checks reported" is accepted
    only until the repository has CI workflows; once it does, a missing check means CI did
    not run, and that is a refusal.
-4. **Compose the merge subject** in the house format, `<prefix>: <summary>`, by the same
-   rules `/commit` states (≤ 60 characters, the prefix chosen from what the PR did).
-   `--subject` is required exactly so that GitHub's generated default ("Merge pull
-   request …") never lands. Present the subject and wait for approval.
+4. **Compose the merge subject: `PR #<N>: <PR title>`.** The PR title already follows the
+   house format, so the subject reads `PR #4: fix: infer hvac_action from settled TemSen
+   steps`. The PR identifier leads so `git log` on `develop` shows which pull request
+   each merge brought in. The merge commit has no body. The `PR #<N>: ` prefix does not
+   count toward the title's length limit. `--subject` is required exactly so that
+   GitHub's generated default ("Merge pull request …") never lands. Present the subject
+   and wait for approval.
 5. **Merge, pinned to the reviewed head:**
    ```
-   gh pr merge <N> --merge --subject "<prefix>: <summary>" --body "" \
+   gh pr merge <N> --merge --subject "PR #<N>: <PR title>" --body "" \
      --match-head-commit "$(git rev-parse HEAD)" --delete-branch
    ```
    `--match-head-commit` refuses the merge if the remote head moved after step 2.
@@ -62,7 +65,7 @@ separable steps. Say in the report why it was chosen.
 - **Never merge a draft.**
 - **Never merge with a dirty tree or unpushed commits.**
 - **Never merge with failing, pending or unreadable checks.**
-- **Never let GitHub's default merge subject land.** `--subject` always.
+- **Never let GitHub's default merge subject land.** `--subject "PR #<N>: <PR title>"` always.
 - **Never merge without the user approving the subject.**
 - Nothing here needs a script of its own. Every action is `gh pr merge` or plain git.
 
