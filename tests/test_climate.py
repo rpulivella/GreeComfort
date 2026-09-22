@@ -137,3 +137,11 @@ async def test_unit_offline_marks_the_entity_unavailable(hass: HomeAssistant, un
     with patch("custom_components.gree_comfort.gree_protocol.asyncio.sleep"):
         await device.async_update()
     assert device.available is False
+
+
+async def test_first_command_after_an_offline_startup_reaches_the_unit(hass: HomeAssistant, unit, setup_integration):
+    unit.online = False  # HA starts while the unit is unreachable, as after a power outage
+    device = await setup_integration()
+    unit.online = True
+    await device.SyncState({"Lig": 1})
+    assert unit.sent("Lig") == [1]
