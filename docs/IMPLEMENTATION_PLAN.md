@@ -1,6 +1,6 @@
 # Gree Comfort Integration - Implementation Documentation
 
-Custom fork of [HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent) v3.3.2
+Built on [HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent), starting from v3.3.2
 
 ## Overview
 
@@ -61,7 +61,7 @@ User: Change HVAC mode from Heat to Cool (while Away preset active)
 User: Manually adjust temperature
   → Manual override flag turns ON
   → Temperature stays at manual value
-  → Preset mode still shows "Away" but doesn't control temp
+  → Preset mode still shows "Away" but does not control temp
 
 User: Press "Clear Manual Override" button
   → Reapplies away_cool (current preset + HVAC mode)
@@ -348,7 +348,7 @@ class GreeNumber(GreeEntity, NumberEntity, RestoreEntity):
 ✅ Persists across restarts
 ✅ Binary sensor updates in real-time
 ✅ Clear button works
-✅ Doesn't trigger when applying presets
+✅ Does not trigger when applying presets
 
 ### Preset Modes
 ✅ Home/Sleep/Away apply correct temps

@@ -8,9 +8,9 @@ Origin and modification notice
 
 GreeComfort is a modified version of HomeAssistant-GreeClimateComponent
 (https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent) by Rob Hofmann and
-its contributors, forked at release 3.3.2 and licensed under the GNU General Public
-License, version 3. As that license requires, this notice states that the work has been
-modified.
+its contributors, starting from its 3.3.2 release and licensed under the GNU General
+Public License, version 3. As that license requires, this notice states that the work has
+been modified.
 
 Modified from 2026-02-20 onward, including: a separate `gree_comfort` domain; comfort
 presets with separate heat and cool temperatures; manual override tracking; smart 8°C
