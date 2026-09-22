@@ -245,8 +245,6 @@ class GreeClimate(ClimateEntity):
         self._current_outside_temperature = None
         self._current_room_humidity = None
 
-        self._firstTimeRun = True
-
         self._enable_turn_on_off_backwards_compatibility = False
 
         self.encryption_version = encryption_version
@@ -709,21 +707,16 @@ class GreeClimate(ClimateEntity):
             if not (acOptions == {}):
                 self._acOptions = self.SetAcOptions(self._acOptions, acOptions)
 
-            # If not the first (boot) run, update state towards the HVAC
-            if not (self._firstTimeRun):
-                if not (acOptions == {}):
-                    # loop used to send changed settings from HA to HVAC
-                    try:
-                        await self.SendStateToAc()
-                    except Exception as e:
-                        _LOGGER.warning(f"{self._name}: Failed to send state to device {self._ip_addr}:{self._port}: {str(e)}")
-                        # Mark device as offline if communication fails
-                        if not self._disable_available_check:
-                            _LOGGER.info(f"{self._name}: Device marked offline after failed send attempt")
-                            self._device_online = False
-            else:
-                # loop used once for Gree Climate initialisation only
-                self._firstTimeRun = False
+            # Send any requested change, including on the first successful sync after a failed startup
+            if acOptions:
+                try:
+                    await self.SendStateToAc()
+                except Exception as e:
+                    _LOGGER.warning(f"{self._name}: Failed to send state to device {self._ip_addr}:{self._port}: {str(e)}")
+                    # Mark device as offline if communication fails
+                    if not self._disable_available_check:
+                        _LOGGER.info(f"{self._name}: Device marked offline after failed send attempt")
+                        self._device_online = False
 
             # Update HA state to current HVAC state
             self.UpdateHAStateToCurrentACState()
