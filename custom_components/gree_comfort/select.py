@@ -116,16 +116,14 @@ class GreeSelectEntity(GreeEntity, SelectEntity, RestoreEntity):
         """Restore state when entity is added to hass."""
         await super().async_added_to_hass()
 
-        # Refresh options when entity is added
-        if self.entity_description.options_fn:
-            self._attr_options = self.entity_description.options_fn(self._hass, self._entry_id)
-
         # Restore the last selected state if available
         if self.entity_description.restore_state:
             restored = await self.async_get_last_state()
             if restored and self.entity_description.set_fn:
                 self.entity_description.set_fn(self._device, restored.state)
                 _LOGGER.debug("Restored %s state: %s", self.entity_id, restored.state)
+
+        self._refresh_options()
 
         # Set up dispatcher listener for preset mode updates from climate entity
         if self.entity_description.property_key == "preset_mode":
@@ -171,14 +169,21 @@ class GreeSelectEntity(GreeEntity, SelectEntity, RestoreEntity):
             self.async_write_ha_state()
             _LOGGER.info("Selected %s: %s", self.entity_description.property_key, option)
 
+    def _refresh_options(self) -> None:
+        """Rebuild the options, keeping the current choice even before its sensor has loaded."""
+        if not self.entity_description.options_fn:
+            return
+        options = self.entity_description.options_fn(self._hass, self._entry_id)
+        # A sensor from a later-loading integration is absent at startup; HA shows an unlisted choice as unknown
+        if (current := self.current_option) not in options:
+            options.append(current)
+        if options != self._attr_options:
+            self._attr_options = options
+            _LOGGER.debug("Updated temperature sensor options: %s", self._attr_options)
+
     async def async_update(self) -> None:
-        """Update the entity."""
-        # Refresh available temperature sensors periodically
-        if self.entity_description.options_fn:
-            new_options = self.entity_description.options_fn(self._hass, self._entry_id)
-            if new_options != self._attr_options:
-                self._attr_options = new_options
-                _LOGGER.debug("Updated temperature sensor options: %s", self._attr_options)
+        """Refresh the available temperature sensors."""
+        self._refresh_options()
 
     @property
     def available(self) -> bool:
