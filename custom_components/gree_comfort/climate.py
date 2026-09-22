@@ -7,7 +7,6 @@ This module defines the climate (HVAC) unit for the Gree integration.
 # Standard library imports
 import base64
 import logging
-from collections import deque
 from datetime import timedelta, datetime
 
 # Third-party imports
@@ -59,7 +58,7 @@ from .const import (
     CONF_TEMP_SENSOR_OFFSET,
 )
 from .gree_protocol import Pad, FetchResult, GetDeviceKey, GetGCMCipher, EncryptGCM, GetDeviceKeyGCM
-from .helpers import TempOffsetResolver, gree_f_to_c, gree_c_to_f, encode_temp_c, decode_temp_c
+from .helpers import TempOffsetResolver, TemSenStepTracker, gree_f_to_c, gree_c_to_f, encode_temp_c, decode_temp_c
 
 REQUIREMENTS = ["pycryptodome"]
 
@@ -153,6 +152,10 @@ ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
 # 2× the Zigbee max reporting interval (3600s) — absorbs coordinator jitter that can delay
 # reports by 60–100 min, preventing false-positive stale restores.
 ECO_SHUTOFF_SENSOR_STALE_S = 120 * 60  # 7200s
+
+# Max time a toward TemSen step counts as a run with no further step; heat runs step again
+# within 34 min at p90, cool runs hold one step for up to 54 min.
+TEMSEN_ACTIVE_TIMEOUT_S = {HVACMode.HEAT: 35 * 60, HVACMode.COOL: 60 * 60}
 
 
 async def async_setup_entry(hass, entry, async_add_devices):
@@ -300,8 +303,11 @@ class GreeClimate(ClimateEntity):
         self._manual_override = False
         self._last_non_auto_hvac_mode = HVACMode.HEAT  # Track last Heat/Cool mode for Auto fallback
 
-        # Track last hvac_action for direction-change detection (slope = 0 case)
-        self._last_hvac_action = HVACAction.IDLE
+        # hvac_action from settled TemSen steps; mode and power edges re-baseline the tracker
+        self._temsen_tracker = TemSenStepTracker()
+        self._temsen_active = False
+        self._tracked_mode = None
+        self._tracked_pow = None
 
         # Load preset temperatures from options or use defaults
         if preset_options:
@@ -356,9 +362,6 @@ class GreeClimate(ClimateEntity):
         # 1 = same as this toggle "on", 2–6 = allow N skips before yielding to the schedule.
         # This would give forgetful-household tolerance without fully surrendering manual control.
         self._schedule_auto_release = False
-
-        # Temperature history for HVAC action idle detection (150 seconds at 10s polling)
-        self._temp_history = deque(maxlen=15)
 
         # Eco Shutoff state
         self._eco_shutoff_enabled = False
@@ -562,11 +565,25 @@ class GreeClimate(ClimateEntity):
             self._current_room_humidity = self._acOptions["DwatSen"]
             _LOGGER.debug(f"{self._name}: UpdateHARoomHumidity: HA room humidity set with device built-in room humidity sensor state: {self._current_room_humidity}%")
 
-    def _update_temp_history(self):
-        """Update temperature history for idle detection."""
-        if self._current_temperature is not None:
-            self._temp_history.append(self._current_temperature)
-            _LOGGER.debug(f"{self._name}: Temp history: {list(self._temp_history)}")
+    def _update_temsen_tracker(self):
+        """Feed the latest TemSen reading to the step tracker (see TEMSEN_ACTIVE_TIMEOUT_S)."""
+        now = dt_util.utcnow()
+        pow_on = self._acOptions.get("Pow") == 1
+        if pow_on and self._tracked_pow is False:
+            self._temsen_tracker.power_on(now)
+        self._tracked_pow = pow_on
+
+        if self._hvac_mode != self._tracked_mode:
+            self._temsen_tracker.reset(self._current_temperature)
+            self._tracked_mode = self._hvac_mode
+
+        timeout_s = TEMSEN_ACTIVE_TIMEOUT_S.get(self._hvac_mode)
+        if not pow_on or timeout_s is None:
+            self._temsen_active = False
+            return
+        direction = 1 if self._hvac_mode == HVACMode.HEAT else -1
+        self._temsen_active = self._temsen_tracker.update(self._current_temperature, direction, timeout_s, now)
+        _LOGGER.debug(f"{self._name}: TemSen {self._current_temperature}°C, active={self._temsen_active}")
 
     def UpdateHAStateToCurrentACState(self):
         self.UpdateHATargetTemperature()
@@ -578,8 +595,7 @@ class GreeClimate(ClimateEntity):
         self.UpdateHAOutsideTemperature()
         self.UpdateHARoomHumidity()
 
-        # Update temperature history for trend tracking
-        self._update_temp_history()
+        self._update_temsen_tracker()
 
         # Check if device temperature or mode differs from expected preset
         # (detects manual changes made on physical device)
@@ -802,23 +818,6 @@ class GreeClimate(ClimateEntity):
         # Return current operation mode ie. heat, cool, idle.
         return self._hvac_mode
 
-    def _linear_regression_slope(self, temps):
-        """Calculate slope using linear regression on temperature sequence."""
-        n = len(temps)
-        if n < 2:
-            return 0
-
-        x_mean = (n - 1) / 2.0
-        y_mean = sum(temps) / n
-
-        numerator = sum((i - x_mean) * (temps[i] - y_mean) for i in range(n))
-        denominator = sum((i - x_mean) ** 2 for i in range(n))
-
-        if denominator == 0:
-            return 0
-
-        return numerator / denominator
-
     @property
     def hvac_action(self):
         """Return current HVAC action - what the unit is actually doing."""
@@ -827,64 +826,19 @@ class GreeClimate(ClimateEntity):
         if not self._acOptions or self._acOptions.get('Pow') == 0:
             return HVACAction.OFF
 
-        current_temp = self._current_temperature
-        target_temp = self._target_temperature
         mode = self.hvac_mode
-
-        # Handle modes that don't track temperature
         if mode == HVACMode.DRY:
             return HVACAction.DRYING
-        elif mode == HVACMode.FAN_ONLY:
+        if mode == HVACMode.FAN_ONLY:
             return HVACAction.FAN
-
-        # For heat/cool modes, determine if actively heating/cooling or idle
-        if current_temp is None or target_temp is None:
-            return HVACAction.IDLE
-
-        # Direction-change idle detection using temperature trend
-        # State changes ONLY on direction reversal (slope sign change)
-        # When slope = 0, maintain previous state
-        if len(self._temp_history) < 4:
-            self._last_hvac_action = HVACAction.IDLE
-            return HVACAction.IDLE  # Not enough data yet
-
-        # Use last 10 readings for slope calculation (100 second window at 10s polling)
-        history = list(self._temp_history)[-10:]
-        slope = self._linear_regression_slope(history)
-
-        _LOGGER.debug(f"{self._name}: Temp: {current_temp}, Slope: {slope:.3f}, Last action: {self._last_hvac_action}")
-
-        # Auto mode: Cannot determine action without compressor feedback from device
+        # Auto mode: the step direction that means "running" is unknown
         if mode == HVACMode.AUTO:
-            return None  # Unknown - HA will show as unavailable
-
-        # Heat mode: Temp rising = heating, temp falling = idle, temp flat = maintain state
-        if mode == HVACMode.HEAT:
-            if slope > 0:
-                action = HVACAction.HEATING
-            elif slope < 0:
-                action = HVACAction.IDLE
-            else:
-                # Slope = 0: maintain previous action (direction hasn't changed)
-                action = self._last_hvac_action
-
-        # Cool mode: Temp falling = cooling, temp rising = idle, temp flat = maintain state
-        elif mode == HVACMode.COOL:
-            if slope < 0:
-                action = HVACAction.COOLING
-            elif slope > 0:
-                action = HVACAction.IDLE
-            else:
-                # Slope = 0: maintain previous action (direction hasn't changed)
-                action = self._last_hvac_action
-
-        # Other modes (shouldn't reach here)
-        else:
-            action = HVACAction.IDLE
-
-        # Store action for next slope=0 case
-        self._last_hvac_action = action
-        return action
+            return None
+        if mode == HVACMode.HEAT and self._temsen_active:
+            return HVACAction.HEATING
+        if mode == HVACMode.COOL and self._temsen_active:
+            return HVACAction.COOLING
+        return HVACAction.IDLE
 
     @property
     def swing_mode(self):

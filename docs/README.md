@@ -6,7 +6,7 @@
 
 This version extends the base Gree integration with:
 - ✅ **Comfort Preset Modes**: Home, Sleep, Away, Off with dual temperatures
-- ✅ **Number Entities**: Easy access to preset temperatures and idle tolerance on device page
+- ✅ **Number Entities**: Easy access to preset temperatures on device page
 - ✅ **Manual Override Tracking**: Binary sensor shows when temperature is manually adjusted
 - ✅ **Clear Override Button**: One-tap return to preset temperature
 - ✅ **Smart 8°C Mode**: Auto frost protection for Away/Sleep heat presets after configurable threshold (default 60 min)
@@ -58,7 +58,6 @@ For each Gree device, the integration creates:
 - **Preset Sleep - Cool Temperature**: Target temp for Sleep preset in cooling mode
 - **Preset Away - Heat Temperature**: Target temp for Away preset in heating mode
 - **Preset Away - Cool Temperature**: Target temp for Away preset in cooling mode
-- **Idle Tolerance (±)**: Temperature tolerance for idle detection
 - **Smart 8°C Threshold**: Minutes Away/Sleep+heat must be active before frost protection engages (default: 60, range: 15–480)
 
 All temperature entities automatically display in your system's preferred units (°F or °C).
@@ -225,11 +224,13 @@ tap_action:
 
 ### HVAC Action Detection
 
-The integration reports current HVAC action based on:
-- Power state (off when unit is off)
-- Current mode (heat/cool/dry/fan)
-- Temperature comparison (heating/cooling when temp differs from target)
-- Idle tolerance setting (prevents rapid state changes)
+The unit does not report whether its compressor is running, so the integration infers it from the unit's own temperature sensor (`TemSen`). That sensor reads in whole °C and, while the unit runs, sits one step toward the conditioned direction, stepping back when the run ends.
+
+- A new reading counts only after it holds for 3 minutes, which filters flicker between two adjacent values
+- In heat, a settled step up means `heating` and a step down means `idle`; in cool, a step down means `cooling` and a step up means `idle`
+- With no further step, `heating` ends after 35 minutes and `cooling` after 60 minutes; another step in the same direction restarts that time
+- Readings in the first 6 minutes after power-on are ignored, because the fan starting moves the sensor on its own
+- Off, Eco Shutoff (`idle`), dry and fan modes are reported directly; auto mode reports no action
 
 **Access HVAC Action:**
 ```yaml
@@ -238,15 +239,7 @@ The integration reports current HVAC action based on:
 
 Returns: `heating`, `cooling`, `idle`, `drying`, `fan`, or `off`
 
-**Idle Tolerance:**
-The integration considers the unit "idle" when current temperature is within ± the idle tolerance of the target. For example:
-- Target: 72°F
-- Idle Tolerance: 1°F
-- Unit reports "idle" when temp is 71-73°F
-- Unit reports "cooling" when temp is >73°F
-- Unit reports "heating" when temp is <71°F
-
-Adjust via `number.bedroom_ac_target_tolerance`.
+**Limits:** a room drifting across a 1°C boundary on its own looks like a run start and reads as `heating` or `cooling` until the timeout. Detection lags a real run start by the 3-minute settle time plus however long the sensor takes to step.
 
 ### Cycle Management
 

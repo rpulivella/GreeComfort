@@ -1,5 +1,7 @@
 """Helper functions and classes for Gree integration."""
 
+from datetime import timedelta
+
 from .const import TEMSEN_OFFSET
 
 
@@ -129,3 +131,54 @@ def decode_temp_c(SetTem: int, TemRec: int) -> float:
     Returns the original temperature as a float.
     """
     return SetTem + (0.5 if TemRec else 0.0)
+
+
+class TemSenStepTracker:
+    """Detect compressor runs from settled 1°C steps of TemSen, which sits one step toward the conditioned direction while running."""
+
+    def __init__(self, settle_s: float = 180, power_on_ignore_s: float = 360):
+        self._settle_s = settle_s
+        self._power_on_ignore_s = power_on_ignore_s
+        self.reset()
+
+    def reset(self, value: float | None = None) -> None:
+        self._settled = value
+        self._candidate = None
+        self._candidate_since = None
+        self._active_since = None
+        self._ignore_until = None
+
+    def power_on(self, now) -> None:
+        self._candidate = None
+        self._active_since = None
+        self._ignore_until = now + timedelta(seconds=self._power_on_ignore_s)
+
+    @property
+    def active_since(self):
+        return self._active_since
+
+    def update(self, value: float | None, direction: int, timeout_s: float, now) -> bool:
+        """Feed one reading; direction is +1 for heat, -1 for cool. Returns True while active."""
+        if value is None:
+            return self._active_since is not None
+        if self._settled is None or (self._ignore_until is not None and now < self._ignore_until):
+            self._settled = value
+            self._candidate = None
+            return False
+        self._ignore_until = None
+
+        if value == self._settled:
+            self._candidate = None
+        elif value != self._candidate:
+            self._candidate = value
+            self._candidate_since = now
+        elif (now - self._candidate_since).total_seconds() >= self._settle_s:
+            step = 1 if value > self._settled else -1
+            self._settled = value
+            self._candidate = None
+            # Backdate to when the new value first appeared, not when it settled
+            self._active_since = self._candidate_since if step == direction else None
+
+        if self._active_since is not None and (now - self._active_since).total_seconds() >= timeout_s:
+            self._active_since = None
+        return self._active_since is not None
