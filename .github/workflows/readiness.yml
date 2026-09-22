@@ -31,7 +31,9 @@ jobs:
           fetch-depth: 0
 
       - name: Fetch the base branch the facts compare against
-        run: git fetch --no-tags origin ${{ github.event.pull_request.base.ref }}
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: git fetch --no-tags origin "$BASE_REF"
 
       - uses: actions/setup-python@v6
         with:
@@ -44,12 +46,18 @@ jobs:
         run: pip install -r requirements_test.txt
 
       - name: Collect this branch's facts
+        # Through env, never interpolated into the script, because the branch name is author-chosen.
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python scripts/merge-readiness.py collect \
-            --pull-request ${{ github.event.pull_request.number }} \
-            --base origin/${{ github.event.pull_request.base.ref }} \
-            --branch ${{ github.event.pull_request.head.ref }} \
-            --head-sha ${{ github.event.pull_request.head.sha }} \
+            --pull-request "$PR_NUMBER" \
+            --base "origin/$BASE_REF" \
+            --branch "$HEAD_REF" \
+            --head-sha "$HEAD_SHA" \
             --output merge-readiness.json
 
       - name: Check merge readiness
