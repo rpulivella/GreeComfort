@@ -27,10 +27,11 @@ GitHub Release.
    - The `version` in `custom_components/gree_comfort/manifest.json` equals `<version>`.
    - `git tag -l "release/v<version>-*"`: the tag does not exist yet. Never reuse a tag.
 3. **Confirm the tag matches what is deployed.** A tag records what ran live, so the tagged
-   commit's integration must be byte-identical to the mount:
+   commit's integration must be byte-identical to the deployed copy. The deployed location
+   is machine-specific and recorded in the local `CLAUDE.md`, never in this repository:
    ```
    diff -rq --exclude __pycache__ --exclude .DS_Store \
-     custom_components/gree_comfort ~/Mountpoints/ha-config/custom_components/gree_comfort
+     custom_components/gree_comfort <deployed>/custom_components/gree_comfort
    ```
    Any difference is a refusal: deploy first, or tag the commit that is deployed.
 4. **For a final**, draft the notes from the pull requests merged since the previous final
