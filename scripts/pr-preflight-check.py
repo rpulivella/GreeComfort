@@ -54,8 +54,9 @@ def runTests() -> GateResult:
 
 
 def runJson() -> GateResult:
-    """Parse every tracked JSON file the integration ships, which HA loads at startup."""
-    files = sorted((findRepositoryRoot() / "custom_components").rglob("*.json"))
+    """Parse every JSON the integration ships and every one at the root, which HA and HACS read."""
+    root = findRepositoryRoot()
+    files = sorted((root / "custom_components").rglob("*.json")) + sorted(root.glob("*.json"))
     broken: list[str] = []
     for path in files:
         try:
