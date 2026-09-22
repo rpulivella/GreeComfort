@@ -1,10 +1,11 @@
 ---
-description: Create a pull request from the current feature branch into develop
+description: Create a draft pull request from the current feature branch into develop
 ---
 
 # /pr-draft
 
-Create a pull request from the current feature branch into `develop`.
+Create a **draft** pull request from the current feature branch into `develop`. Every PR
+opens as a draft, so CI runs nothing until `/pr-review-code` promotes it.
 
 ## Steps
 
@@ -29,15 +30,14 @@ Create a pull request from the current feature branch into `develop`.
    Do not call `gh` until the user says yes (or equivalent).
 8. Create the PR with:
    ```
-   gh pr create --base develop --title "..." --body "$(cat <<'EOF'
-   ...
-   EOF
-   )"
+   gh pr create --draft --base develop --title "..." --body-file <file in the scratchpad or $TMPDIR>
    ```
-   Use `--draft` only if the user explicitly requests it.
+   Pass the body as a **file**, never a shell heredoc, which mangles the backticks in code
+   spans. Never write the body file inside the repository.
 9. Output the PR URL.
 
 ## Hard rules
+- ALWAYS `--draft`. Never open a non-draft PR; only `/pr-review-code` takes one out of draft.
 - NEVER target any branch other than `develop`
 - NEVER add "Co-Authored-By", "Generated with Claude Code", or any AI attribution anywhere
 - NEVER push without confirming first
