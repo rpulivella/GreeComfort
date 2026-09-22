@@ -211,8 +211,9 @@ async def async_setup_entry(
 class GreeNumberEntity(GreeEntity, RestoreNumber):
     """Defines a Gree number entity.
 
-    Values are held internally in °C. Absolute temperatures report native °C and HA converts
-    them; deltas report in the HA unit because HA does not pick a display unit for deltas.
+    Values are held internally in °C. Temperatures report in the HA unit, rounded to 0.1: HA
+    rounds a converted number to the native value's decimal places, so 25.56 °C would show as
+    78.01 °F, and it picks no display unit for a delta at all.
     """
 
     entity_description: GreeNumberEntityDescription
@@ -231,11 +232,13 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
             except (AttributeError, KeyError, TypeError):
                 pass
 
-    def _is_delta_temp(self) -> bool:
-        return self.entity_description.device_class == NumberDeviceClass.TEMPERATURE_DELTA
+    def _is_temperature(self) -> bool:
+        return self.entity_description.device_class in (NumberDeviceClass.TEMPERATURE, NumberDeviceClass.TEMPERATURE_DELTA)
 
-    def _delta_from_c(self, value: float) -> float:
-        return round(TemperatureDeltaConverter.convert(value, UnitOfTemperature.CELSIUS, self._display_unit), 1)
+    def _from_c(self, value: float) -> float:
+        """Convert an internal °C value to the HA unit for display."""
+        converter = TemperatureDeltaConverter if self.entity_description.device_class == NumberDeviceClass.TEMPERATURE_DELTA else TemperatureConverter
+        return round(float(converter.convert(value, UnitOfTemperature.CELSIUS, self._display_unit)), 1)
 
     def _to_internal(self, value: float, unit: str | None) -> float:
         """Convert a value in the given unit to the internal °C representation."""
@@ -248,25 +251,27 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
 
     @property
     def native_unit_of_measurement(self):
-        if self._is_delta_temp():
+        if self._is_temperature():
             return self._display_unit
         return self.entity_description.native_unit_of_measurement
 
     @property
     def native_min_value(self):
-        # float() because HA rounds converted bounds to the native value's decimal places
-        value = float(self.entity_description.native_min_value)
-        return self._delta_from_c(value) if self._is_delta_temp() else value
+        value = self.entity_description.native_min_value
+        return self._from_c(value) if self._is_temperature() else value
 
     @property
     def native_max_value(self):
-        value = float(self.entity_description.native_max_value)
-        return self._delta_from_c(value) if self._is_delta_temp() else value
+        value = self.entity_description.native_max_value
+        return self._from_c(value) if self._is_temperature() else value
 
     @property
     def native_step(self):
         value = self.entity_description.native_step
-        return self._delta_from_c(value) if self._is_delta_temp() else value
+        if self.entity_description.device_class == NumberDeviceClass.TEMPERATURE:
+            # The unit takes whole °F setpoints, or half °C ones
+            return 1.0 if self._display_unit == UnitOfTemperature.FAHRENHEIT else value
+        return self._from_c(value) if self._is_temperature() else value
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
@@ -312,12 +317,12 @@ class GreeNumberEntity(GreeEntity, RestoreNumber):
             value = self._internal_value
         else:
             value = self.entity_description.value_fn(self._device)
-        if value is not None and self._is_delta_temp():
-            return self._delta_from_c(value)
+        if value is not None and self._is_temperature():
+            return self._from_c(value)
         return value
 
     async def async_set_native_value(self, value: float) -> None:
-        """Set new value; HA has already converted absolute temperatures to native °C."""
+        """Set a new value, given in the native unit."""
         internal_value = self._to_internal(value, self.native_unit_of_measurement)
 
         if self.entity_description.set_fn:
