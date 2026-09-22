@@ -49,7 +49,7 @@ cp -r custom_components/gree_comfort /config/custom_components/
 - ✅ **Smart 8°C Mode**: Auto frost protection for Away/Sleep heat presets after configurable threshold
 - ✅ **Cycle Management**: Optional compressor protection
 - ✅ **HVAC Action**: Real-time heating/cooling/idle status
-- ✅ **Smart Units**: Auto °F/°C detection and conversion
+- ✅ **Native Temperature Units**: Reports °C and Home Assistant converts to your unit system
 - ✅ **Full Persistence**: All settings survive restarts
 
 ## Documentation

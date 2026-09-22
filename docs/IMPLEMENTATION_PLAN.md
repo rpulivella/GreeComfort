@@ -12,8 +12,8 @@ This implementation extends the base Gree integration with comprehensive comfort
 - **Clear Override Button**: One-tap return to preset temperature
 - **Cycle Management**: Optional compressor protection with configurable timing
 - **HVAC Action Tracking**: Real-time state reporting (heating/cooling/idle/drying/fan/off)
-- **Smart Temperature Handling**: Automatic °F/°C detection with proper delta conversion
-- **Full Persistence**: All settings survive restarts via RestoreEntity
+- **Native Temperature Units**: Entities report °C; Home Assistant converts to the user's unit system
+- **Full Persistence**: All settings survive restarts via RestoreNumber and RestoreEntity
 
 ## Key Design Decisions
 
@@ -27,16 +27,17 @@ This implementation extends the base Gree integration with comprehensive comfort
 - **Why**:
   - Easier user access (no config dialog navigation)
   - Automation-friendly (can set temps programmatically)
-  - Persistent via RestoreEntity
+  - Persistent via RestoreNumber, which records each value's unit
   - Follows HA best practices for user-adjustable values
 - **Impact**: Config dialog only has original options + cycle management
 
 ### Temperature Storage Strategy
-- **Internal**: All temperatures stored in Celsius
-- **Display**: Converted to user's HA system unit preference
-- **Absolute temps**: Uses standard C↔F conversion with offset (`°F = °C × 9/5 + 32`)
-- **Delta temps** (idle tolerance): Uses delta conversion WITHOUT offset (`°F_delta = °C_delta × 9/5`)
-- **Why**: Prevents unit confusion (1°C tolerance ≠ 33.8°F, it's 1.8°F)
+- **Internal**: All temperatures stored in Celsius, the device's unit
+- **Display**: Entities report native °C and Home Assistant converts; the integration does no display conversion
+- **Absolute temps**: `device_class` temperature on climate, preset numbers and sensors
+- **Delta temps** (Eco Shutoff margins): `device_class` temperature_delta, reported in the system unit via `TemperatureDeltaConverter`
+- **Setpoint encoding**: With a °F system, setpoints go to the unit as whole °F (`gree_f_to_c`), the only unit logic outside Home Assistant
+- **Why**: Hand conversion in several places once compared a °F setpoint against a °C sensor
 
 ### Manual Override Behavior
 - **Detection**: Any manual temperature change while preset is active sets override flag
@@ -97,9 +98,9 @@ User: Press "Clear Manual Override" button
 
 **Features**:
 - 7 number entity descriptions (6 preset temps + 1 idle tolerance)
-- Dynamic °F/°C conversion based on HA system units
-- Separate delta conversion for idle tolerance (no offset)
-- RestoreEntity persistence for all values
+- Native °C with temperature device classes; Home Assistant converts for display
+- Temperature-delta device class for Eco Shutoff margins
+- RestoreNumber persistence; values saved before 1.1.0 migrate once using their recorded unit
 - EntityCategory.CONFIG for proper UI placement
 - Custom value setters that update climate entity
 
@@ -280,22 +281,15 @@ async def _apply_preset_temperature(self):
     self._set_manual_override(False)
 ```
 
-### Temperature Delta Conversion
+### Temperature Conversion
+
+Conversion uses Home Assistant's converters rather than local formulas:
 
 ```python
-# Absolute temperature (with offset)
-def _c_to_f(self, celsius: float) -> float:
-    return (celsius * 9.0 / 5.0) + 32.0
+from homeassistant.util.unit_conversion import TemperatureConverter, TemperatureDeltaConverter
 
-def _f_to_c(self, fahrenheit: float) -> float:
-    return (fahrenheit - 32.0) * 5.0 / 9.0
-
-# Temperature delta (NO offset)
-def _c_delta_to_f_delta(self, celsius_delta: float) -> float:
-    return celsius_delta * 9.0 / 5.0
-
-def _f_delta_to_c_delta(self, fahrenheit_delta: float) -> float:
-    return fahrenheit_delta * 5.0 / 9.0
+TemperatureConverter.convert(value, from_unit, UnitOfTemperature.CELSIUS)       # absolute, with offset
+TemperatureDeltaConverter.convert(value, from_unit, UnitOfTemperature.CELSIUS)  # delta, no offset
 ```
 
 ### Cycle Management
