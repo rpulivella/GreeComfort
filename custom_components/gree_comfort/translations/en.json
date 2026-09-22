@@ -4,7 +4,8 @@
       "cannot_connect": "Unable to connect to the device. Please check the network connection and try again."
     },
     "abort": {
-      "already_configured": "A device with this MAC address is already configured."
+      "already_configured": "A device with this MAC address is already configured.",
+      "cannot_connect": "Could not connect to the device."
     },
     "step": {
       "user": {

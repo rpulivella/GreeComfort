@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import SOURCE_USER
+from homeassistant.config_entries import SOURCE_IMPORT, SOURCE_USER
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -91,3 +91,24 @@ async def test_options_flow_saves_known_keys_and_clears_empty_ones(hass: HomeAss
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["hvac_modes"] == ["cool", "heat"]
     assert entry.options["temp_sensor_offset"] is None  # left out of the form, so cleared
+
+
+async def test_yaml_import_creates_the_entry(hass: HomeAssistant):
+    with patch(f"{FLOW}.test_connection", AsyncMock(return_value=True)):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data={"name": "Basement", "host": "10.0.0.2", "mac": "aabbccddeeff"}
+        )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["port"] == 7000 and result["data"]["encryption_version"] == 1
+
+
+async def test_yaml_import_aborts_on_an_unreachable_unit(hass: HomeAssistant):
+    with patch(f"{FLOW}.test_connection", AsyncMock(return_value=False)):
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data=MANUAL)
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "cannot_connect"
+
+
+async def test_yaml_import_aborts_on_a_configured_unit(hass: HomeAssistant):
+    MockConfigEntry(domain=DOMAIN, unique_id="aabbccddeeff", data=MANUAL).add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data=MANUAL)
+    assert result["type"] is FlowResultType.ABORT and result["reason"] == "already_configured"
