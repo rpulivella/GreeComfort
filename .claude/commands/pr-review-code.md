@@ -13,8 +13,8 @@ makes sure that spend is on a branch that already passes locally.
 ## What a review is today
 
 **The preflight, then a reading of the diff.** `scripts/pr-preflight-check.py` runs every
-gate in one pass (pytest and the JSON gate) and reports all of them, so a failing run lists
-everything to fix rather than the first thing.
+gate in one pass (pytest, the prose gate and the JSON gate) and reports all of them, so a failing
+run lists everything to fix rather than the first thing.
 
 **The preflight does not read the pull request itself**, so step 5 also reads the body
 against `pr_template.md`: every heading present, every checkbox checked or NA, no template

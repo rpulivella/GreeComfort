@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import importlib
 import io
 import json
 import sys
@@ -41,6 +42,13 @@ def findRepositoryRoot() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def loadStandardsModule():
+    """Return the standards checker as a module; its file name has a hyphen, so import by string."""
+    if str(findRepositoryRoot()) not in sys.path:
+        sys.path.insert(0, str(findRepositoryRoot()))
+    return importlib.import_module("scripts.standards-check")
+
+
 def runTests() -> GateResult:
     """Run the whole pytest suite in this process, with a coverage report and no threshold."""
     import pytest
@@ -67,9 +75,28 @@ def runJson() -> GateResult:
     return GateResult("json", not broken, summary, "\n".join(broken))
 
 
+def runStandards() -> GateResult:
+    """Check every prose file in the repository, failing only on a FAILURE; a warning never gates."""
+    standards = loadStandardsModule()
+    warnings: list[str] = []
+    findings: list[tuple[str, Path, int, str]] = []
+    # The checker's own --all scope, so this inherits its skip rules rather than copying them
+    scope = argparse.Namespace(paths=[], all=True)
+    files = standards.collectFiles(scope, warnings)
+    for path in files:
+        standards.checkFile(path, findings)
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        code = standards.report(findings, files, warnings)
+    failures = sum(1 for finding in findings if finding[0] == "FAIL")
+    summary = f"{len(files)} file(s) checked, {failures} failure(s)"
+    return GateResult("standards", code == 0, summary, buffer.getvalue().strip())
+
+
 # Every gate, in the order a reader most wants them; --gate selects one during development.
 gates: dict[str, Callable[[], GateResult]] = {
     "pytest": runTests,
+    "standards": runStandards,
     "json": runJson,
 }
 
