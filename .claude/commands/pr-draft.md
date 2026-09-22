@@ -2,7 +2,7 @@
 description: Create a pull request from the current feature branch into develop
 ---
 
-# /pr
+# /pr-draft
 
 Create a pull request from the current feature branch into `develop`.
 
@@ -19,7 +19,12 @@ Create a pull request from the current feature branch into `develop`.
    - **Intro paragraph**: 2–3 sentences from the commit log and diff describing what this PR achieves and why.
    - **Type of change**: keep only the one that applies, remove the rest.
    - **Breaking changes**: fill honestly — note `None` for each section that does not apply. Entity renames and storage changes are the two most common breaking surfaces for this integration.
-   - **Checklist**: check the items that are true; leave unchecked the ones that need attention.
+   - **Checklist**: check what is genuinely true. Unchecked means **not done**, so an item
+     that cannot apply moves to the end of the list with `NA` in place of its checkbox
+     (`- NA Entity registry migrations ...`). That records it as considered rather than
+     skipped, which deleting it would lose. Say in the body why, when the reason is worth
+     knowing. **Type of change** keeps its own rule and deletes instead, because its boxes
+     are alternatives rather than obligations.
 7. **STOP. Present the full PR title and body for approval before creating anything.**
    Do not call `gh` until the user says yes (or equivalent).
 8. Create the PR with:

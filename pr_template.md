@@ -18,6 +18,7 @@ _2–3 sentences describing what this PR achieves and why._
 **Config entry options**: removed keys must be dropped from `OPTION_KEYS` and the options flow
 
 ## Checklist
+[Unchecked means NOT DONE. An item that cannot apply moves to the end of this list with NA in place of its checkbox]
 - [ ] Self-review done
 - [ ] All modified `.py` files pass `python3 -m py_compile`
 - [ ] All modified `.json` files are valid JSON
