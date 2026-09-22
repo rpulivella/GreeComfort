@@ -1,0 +1,75 @@
+# Runs the same gates a contributor runs locally, on a machine that is not theirs.
+# Whether a cold install passes at the declared version is the one thing a local run
+# cannot answer. Adapted from pybers' preflight.yml.
+name: preflight
+
+on:
+  pull_request:
+    branches: [develop]
+    # `ready_for_review` fires the moment a pull request leaves draft.
+    types: [opened, synchronize, reopened, ready_for_review]
+  # No push to develop: a pull request merges only once this is green.
+
+# Pushing three commits in a row cancels the two superseded runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    # A draft skips rather than runs, and a skipped job costs nothing.
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # A run takes a few minutes; the runner default of 360 would let one hung job burn the monthly allowance.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          # The one interpreter `requires-python` declares, so the claim lives in one place.
+          python-version-file: pyproject.toml
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install the test requirements
+        run: pip install -r requirements_test.txt
+
+      # One step per gate, so each shows as its own line with its own verdict, and a
+      # failing run still reports every gate.
+      - name: pytest
+        shell: bash -o pipefail -e {0}
+        run: python scripts/pr-preflight-check.py --gate pytest 2>&1 | tee -a "$RUNNER_TEMP/preflight.log"
+
+      - name: json
+        if: always()
+        shell: bash -o pipefail -e {0}
+        run: python scripts/pr-preflight-check.py --gate json 2>&1 | tee -a "$RUNNER_TEMP/preflight.log"
+
+      - name: Summarize the gates
+        if: always()
+        run: |
+          {
+            echo "### Preflight · Python $(python -V | cut -d' ' -f2)"
+            echo
+            echo '| Gate | Result |'
+            echo '| --- | --- |'
+            gates=$(grep -E '^(PASS|FAIL) [^ ]+  ' "$RUNNER_TEMP/preflight.log" || true)
+            if [ -z "$gates" ]; then
+              echo '| none | ❌ the preflight printed no gate lines |'
+            else
+              echo "$gates" | sed -E 's/^PASS ([^ ]+)  (.*)$/| \1 | ✅ \2 |/; s/^FAIL ([^ ]+)  (.*)$/| \1 | ❌ \2 |/'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Home Assistant's own manifest and structure validator, which only runs as its action.
+  hassfest:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: home-assistant/actions/hassfest@master
