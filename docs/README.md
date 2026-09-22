@@ -2,7 +2,7 @@
 
 **Enhanced Gree integration with comfort modes, cycle management, and manual override tracking.**
 
-## What's Different?
+## What is Different?
 
 This version extends the base Gree integration with:
 - ✅ **Comfort Preset Modes**: Home, Sleep, Away, Off with dual temperatures
@@ -266,8 +266,8 @@ When Away or Sleep preset is active in **heating mode**, the integration can aut
 5. When you change preset to Home (or any non-eligible preset), `StHt=0` is sent and the preset temperature is restored
 
 **Configuration (on device page):**
-- **Smart 8°C Mode** switch — enable/disable the feature (default: on)
-- **Smart 8°C Threshold** number — minutes before activation (default: 60, range: 15–480)
+- **Smart 8°C Mode** switch, enable/disable the feature (default: on)
+- **Smart 8°C Threshold** number, minutes before activation (default: 60, range: 15–480)
 
 **Manual 8°C Heat switch:**
 The existing **8°C Heat** switch on the device page still works independently at any time. If you manually turn it on, it counts as a manual override. If you manually turn it off while smart mode is active, the timer restarts and smart mode will re-engage after the full threshold.
@@ -364,7 +364,7 @@ Saved number values record their unit, so switching between °F and °C converts
 2. Verify HVAC mode is set (heat/cool/auto, not "off")
 3. Check manual override binary sensor - if on, press clear override button
 
-### Manual override won't clear
+### Manual override will not clear
 1. Press the "Clear Manual Override" button
 2. Or switch to a different preset mode
 3. Check logs for errors
@@ -375,7 +375,7 @@ Saved number values record their unit, so switching between °F and °C converts
 3. Number entities should automatically display in your system's units
 
 ### Cycle management not working
-1. Verify it's enabled in options dialog
+1. Verify it is enabled in options dialog
 2. Check that min times are set appropriately (defaults: 180s off, 300s on)
 3. Review logs for cycle management messages
 

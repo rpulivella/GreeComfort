@@ -149,7 +149,7 @@ SCAN_INTERVAL = timedelta(seconds=10)
 # power is restored as a safety measure.
 ECO_SHUTOFF_SENSOR_TIMEOUT_S = 600
 # Eco Shutoff: max age of sensor's last_reported timestamp before treating it as stale.
-# 2× the Zigbee max reporting interval (3600s) — absorbs coordinator jitter that can delay
+# 2× the Zigbee max reporting interval (3600s), absorbs coordinator jitter that can delay
 # reports by 60–100 min, preventing false-positive stale restores.
 ECO_SHUTOFF_SENSOR_STALE_S = 120 * 60  # 7200s
 
@@ -352,7 +352,7 @@ class GreeClimate(ClimateEntity):
 
         # Schedule auto-release: when enabled, a scheduled preset change clears any active
         # manual override and applies the preset immediately (as if the button were pressed).
-        # Default is False — override is always respected unless the user explicitly clears it.
+        # Default is False, override is always respected unless the user explicitly clears it.
         #
         # TODO(future): Consider replacing this toggle with a counter (0–6) where the value
         # represents how many scheduled preset changes are allowed to be skipped before the
@@ -469,7 +469,7 @@ class GreeClimate(ClimateEntity):
         if self._acOptions["Pow"] == 0:
             if not self._eco_shutoff_active:
                 self._hvac_mode = HVACMode.OFF
-            # else: eco shutoff owns this power-off — preserve mode so re-engage logic and
+            # else: eco shutoff owns this power-off, preserve mode so re-engage logic and
             # hvac_action can run correctly; the unit is idle, not user-off
         else:
             for key, value in MODES_MAPPING.get("Mod").items():
@@ -516,8 +516,8 @@ class GreeClimate(ClimateEntity):
         if self._has_temp_sensor:
             _LOGGER.debug(f"{self._name}: Built-in temperature sensor reading: {self._acOptions['TemSen']}")
 
-            if self._temp_sensor_offset is None:  # user hasn't chosen an offset
-                # User hasn't set automaticaly, so try to determine the offset
+            if self._temp_sensor_offset is None:  # user has not chosen an offset
+                # User has not set automaticaly, so try to determine the offset
                 temp_c = self._process_temp_sensor(self._acOptions["TemSen"])
                 _LOGGER.debug("method UpdateHACurrentTemperature: User has not chosen an offset, using process_temp_sensor() to automatically determine offset.")
             else:
@@ -539,8 +539,8 @@ class GreeClimate(ClimateEntity):
         if self._has_outside_temp_sensor:
             _LOGGER.debug(f"{self._name}: UpdateHAOutsideTemperature: OutEnvTem: {self._acOptions['OutEnvTem']}")
 
-            if self._temp_sensor_offset is None:  # user hasn't chosen an offset
-                # User hasn't set automatically, so try to determine the offset
+            if self._temp_sensor_offset is None:  # user has not chosen an offset
+                # User has not set automatically, so try to determine the offset
                 temp_c = self._process_temp_sensor(self._acOptions["OutEnvTem"])
                 _LOGGER.debug("method UpdateHAOutsideTemperature: User has not chosen an offset, using process_temp_sensor() to automatically determine offset.")
             else:
@@ -997,7 +997,7 @@ class GreeClimate(ClimateEntity):
         """Set new target temperature."""
         target_temperature = kwargs.get(ATTR_TEMPERATURE)
         if target_temperature is not None:
-            # Explicit setpoint change while eco shutoff is holding the unit off — user
+            # Explicit setpoint change while eco shutoff is holding the unit off, user
             # is taking control back, so clear eco and restore power before applying.
             if self._eco_shutoff_active:
                 self._eco_shutoff_active = False
@@ -1016,7 +1016,7 @@ class GreeClimate(ClimateEntity):
                 _LOGGER.debug(f"{self._name}: async_set_temperature: Set Temp to {target_temperature}{self._unit_of_measurement} ->  SyncState with SetTem={SetTem}, SyncState with TemRec={TemRec}")
 
                 # Mark as manual override - user has taken control of temperature
-                # But not if we're applying a preset temperature programmatically
+                # But not if we are applying a preset temperature programmatically
                 if not getattr(self, '_applying_preset', False):
                     self._set_manual_override(True)
                     _LOGGER.info(f"{self._name}: Manual override activated - temperature set to {target_temperature}{self._unit_of_measurement}")
@@ -1113,9 +1113,9 @@ class GreeClimate(ClimateEntity):
         if self._preset_mode == PRESET_NONE or self._preset_mode == PRESET_OFF:
             return
 
-        # Smart 8°C mode controls the temperature — don't override it with preset temp
+        # Smart 8°C mode controls the temperature, do not override it with preset temp
         if self._stht_smart_active:
-            _LOGGER.debug(f"{self._name}: Skipping preset temp apply — smart 8°C mode is active")
+            _LOGGER.debug(f"{self._name}: Skipping preset temp apply, smart 8°C mode is active")
             return
 
         temps = self._preset_temps[self._preset_mode]
@@ -1126,7 +1126,7 @@ class GreeClimate(ClimateEntity):
         elif self.hvac_mode == HVACMode.COOL:
             target_c = temps["cool"]
         else:
-            # Don't change temp for dry/fan_only modes
+            # Do not change temp for dry/fan_only modes
             return
 
         _LOGGER.info(f"{self._name}: Applying preset {self._preset_mode} temp: {target_c:.2f}°C")
@@ -1137,10 +1137,10 @@ class GreeClimate(ClimateEntity):
         self._applying_preset = False
 
     async def _check_eco_shutoff(self):
-        """Eco Shutoff state machine — runs every poll cycle."""
+        """Eco Shutoff state machine, runs every poll cycle."""
         if not self._eco_shutoff_enabled or not self._eco_shutoff_sensor:
             if self._eco_shutoff_active:
-                # Stale active flag (feature disabled or sensor removed after a firing) —
+                # Stale active flag (feature disabled or sensor removed after a firing) 
                 # clear it now so the Store and UI stay consistent across reloads.
                 self._eco_shutoff_active = False
                 self._eco_shutoff_satisfied_since = None
@@ -1162,7 +1162,7 @@ class GreeClimate(ClimateEntity):
             if age_s > ECO_SHUTOFF_SENSOR_STALE_S:
                 sensor_stale = True
                 _LOGGER.warning(
-                    f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago — treating as stale"
+                    f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago, treating as stale"
                 )
         if sensor_state is None or sensor_state.state in ("unavailable", "unknown") or sensor_stale:
             self._eco_shutoff_satisfied_since = None
@@ -1184,7 +1184,7 @@ class GreeClimate(ClimateEntity):
                 if self._eco_shutoff_active:
                     _LOGGER.warning(
                         f"{self._name}: Eco Shutoff sensor unavailable for "
-                        f"{self._eco_shutoff_sensor_missing_s:.0f}s — restoring power"
+                        f"{self._eco_shutoff_sensor_missing_s:.0f}s, restoring power"
                     )
                     await self.SyncState({"Pow": 1})
                     self._eco_shutoff_active = False
@@ -1193,7 +1193,7 @@ class GreeClimate(ClimateEntity):
                     async_dispatcher_send(self.hass, signal, False)
             return
 
-        # Sensor is healthy — clear any outstanding repair issue and reset counter
+        # Sensor is healthy, clear any outstanding repair issue and reset counter
         self._eco_shutoff_sensor_missing_s = 0
         ir.async_delete_issue(self.hass, DOMAIN, f"eco_shutoff_sensor_{self._mac_addr}")
 
@@ -1237,7 +1237,7 @@ class GreeClimate(ClimateEntity):
         if not self._eco_shutoff_active:
             if is_on and satisfied and time_confirmed:
                 _LOGGER.info(
-                    f"{self._name}: Eco Shutoff — satisfied by {aux_temp:.1f}°C "
+                    f"{self._name}: Eco Shutoff, satisfied by {aux_temp:.1f}°C "
                     f"(setpoint {effective_setpoint:.1f}+{self._eco_shutoff_satisfied_margin}°C) "
                     f"for {elapsed_s / 60:.1f} min, cutting power"
                 )
@@ -1249,7 +1249,7 @@ class GreeClimate(ClimateEntity):
         else:
             if needs_action:
                 _LOGGER.info(
-                    f"{self._name}: Eco Shutoff — temp {aux_temp:.1f}°C drifted within "
+                    f"{self._name}: Eco Shutoff, temp {aux_temp:.1f}°C drifted within "
                     f"{self._eco_shutoff_reengage_delta}°C of setpoint {effective_setpoint:.1f}°C, restoring power"
                 )
                 await self.SyncState({"Pow": 1})
@@ -1263,7 +1263,7 @@ class GreeClimate(ClimateEntity):
         if not self._stht_smart_enabled:
             return
 
-        # Only care about preset and mode — not device power state.
+        # Only care about preset and mode, not device power state.
         # We count wall-clock time from when the preset was set, not compressor runtime.
         in_eligible_preset = (
             self._preset_mode in (PRESET_AWAY, PRESET_SLEEP)
@@ -1277,7 +1277,7 @@ class GreeClimate(ClimateEntity):
                 await self.SyncState({"StHt": 0})
                 await self._save_persistent_state()
             elif self._acOptions.get("StHt") != 1:
-                # Device cleared StHt (firmware behaviour) — re-apply to maintain frost protection
+                # Device cleared StHt (firmware behavior), re-apply to maintain frost protection
                 _LOGGER.info(f"{self._name}: StHt cleared by device - re-applying smart 8°C")
                 await self.SyncState({"StHt": 1})
             return
@@ -1292,7 +1292,7 @@ class GreeClimate(ClimateEntity):
             _LOGGER.info(f"{self._name}: Smart 8°C timer started for {self._preset_mode}+heat preset")
             await self._save_persistent_state()
 
-        # Don't interfere if user manually turned StHt on
+        # Do not interfere if user manually turned StHt on
         if self._acOptions.get("StHt") == 1:
             return
 
@@ -1364,17 +1364,17 @@ class GreeClimate(ClimateEntity):
         if self._manual_override:
             if self._schedule_auto_release:
                 _LOGGER.info(
-                    f"{self._name}: Manual override active but schedule_auto_release is on — "
+                    f"{self._name}: Manual override active but schedule_auto_release is on, "
                     f"auto-releasing override and applying scheduled preset '{preset_mode}'"
                 )
                 await self.async_resume_normal()
                 return
-            _LOGGER.info(f"{self._name}: Manual override active — storing scheduled preset without applying")
+            _LOGGER.info(f"{self._name}: Manual override active, storing scheduled preset without applying")
             self.async_write_ha_state()
             return
 
         if self._preset_mode == PRESET_AWAY:
-            _LOGGER.info(f"{self._name}: Away mode active — storing scheduled preset without applying")
+            _LOGGER.info(f"{self._name}: Away mode active, storing scheduled preset without applying")
             self.async_write_ha_state()
             return
 
@@ -1476,7 +1476,7 @@ class GreeClimate(ClimateEntity):
             _LOGGER.debug(f"{self._name}: No active preset - manual override = False")
             return
 
-        # If smart mode activated StHt, it's not a manual override — skip detection
+        # If smart mode activated StHt, it is not a manual override, skip detection
         # If the user manually toggled StHt on, treat it as a manual override (temp = 8°C by choice)
         if self._acOptions and self._acOptions.get("StHt") == 1:
             if self._stht_smart_active:
@@ -1487,7 +1487,7 @@ class GreeClimate(ClimateEntity):
                 _LOGGER.debug(f"{self._name}: User-activated 8°C mode - treating as manual override")
             return
 
-        # Auto mode is always considered manual override (doesn't fit preset system)
+        # Auto mode is always considered manual override (does not fit preset system)
         if self.hvac_mode == HVACMode.AUTO:
             if not self._manual_override:  # Only log on state change
                 _LOGGER.info(f"{self._name}: Auto mode detected - setting manual override")
@@ -1497,9 +1497,9 @@ class GreeClimate(ClimateEntity):
         # Get expected temperature for current preset + HVAC mode
         expected_temp_c = self._get_expected_preset_temp_c()
         if expected_temp_c is None:
-            # Can't determine (e.g., dry/fan mode, or preset temps not loaded yet)
+            # Cannot determine (e.g., dry/fan mode, or preset temps not loaded yet)
             self._manual_override = False
-            _LOGGER.debug(f"{self._name}: Can't determine expected temp - manual override = False")
+            _LOGGER.debug(f"{self._name}: Cannot determine expected temp - manual override = False")
             return
 
         device_pair = (self._acOptions.get("SetTem"), self._acOptions.get("TemRec"))

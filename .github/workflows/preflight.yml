@@ -44,6 +44,11 @@ jobs:
         shell: bash -o pipefail -e {0}
         run: python scripts/pr-preflight-check.py --gate pytest 2>&1 | tee -a "$RUNNER_TEMP/preflight.log"
 
+      - name: standards
+        if: always()
+        shell: bash -o pipefail -e {0}
+        run: python scripts/pr-preflight-check.py --gate standards 2>&1 | tee -a "$RUNNER_TEMP/preflight.log"
+
       - name: json
         if: always()
         shell: bash -o pipefail -e {0}

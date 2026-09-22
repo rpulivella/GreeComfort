@@ -13,9 +13,10 @@ GreeComfort has no ticket system.
 
 ## What GreeComfort is
 
-A Home Assistant custom integration for Gree air conditioners, forked from
+A Home Assistant custom integration for Gree air conditioners, built on
 [RobHofmann/HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent)
-at 3.3.2 and licensed GPL-3.0 because of it (`NOTICE` carries the attribution). Its own domain,
+starting from its 3.3.2 release, and licensed GPL-3.0 because of it (`NOTICE` carries the
+attribution). It is a separate repository rather than a GitHub fork. Its own domain,
 `gree_comfort`, runs beside the core `gree` integration. It adds comfort presets with separate heat
 and cool temperatures, manual override tracking, smart 8°C frost protection and Eco Shutoff. One
 developer, through an agentic harness, and one live unit that every change is eventually tested on.
@@ -28,7 +29,8 @@ developer, through an agentic harness, and one live unit that every change is ev
 ```
 
 The venv pins the test harness to the Home Assistant release in use (`requirements_test.txt`).
-CI runs `preflight` and `hassfest`, and only on a pull request that has left draft.
+CI runs `preflight`, `hassfest` and HACS's own `validate`, and only on a pull request that has
+left draft.
 
 ## Laws you cannot learn from the code
 
@@ -115,7 +117,8 @@ CI runs `preflight` and `hassfest`, and only on a pull request that has left dra
 
 - **Comments are one line and say why.** Never narrate code, restate a name, describe the change
   being made, or comment code out.
-- US English, no contractions, no em dashes, in code, commits and documents alike.
+- US English, no contractions, no em dashes, in code, commits and documents alike. `/standards`
+  and the preflight's prose gate enforce what is mechanical; the rest is a judgment read.
 
 ## Workflow laws
 

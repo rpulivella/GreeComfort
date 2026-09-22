@@ -1,0 +1,33 @@
+# HACS's own validation: the repository settings and files a HACS user's install depends on.
+# It reads this repository's settings through the API, so unlike the other checks it also runs
+# on a schedule, to catch a setting changed outside a pull request.
+name: validate
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# The token needs to read this repository, which is private; the HACS action needs nothing more.
+permissions:
+  contents: read
+
+jobs:
+  hacs:
+    # A draft skips, as everywhere else here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: HACS validation
+        uses: hacs/action@main
+        with:
+          category: integration

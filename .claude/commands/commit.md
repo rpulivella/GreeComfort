@@ -48,7 +48,8 @@ so subjects carry no bracketed id.
    ```
    .venv/bin/python3 scripts/pr-preflight-check.py
    ```
-   It runs the whole pytest suite and parses every JSON file the integration ships. A
+   It runs the whole pytest suite, the prose gate over every document, and parses every JSON file
+   the integration and HACS read. A
    fresh clone needs the venv first: `uv venv -p 3.14 .venv` then
    `VIRTUAL_ENV=.venv uv pip install -r requirements_test.txt`.
 7. Commit with inline `-m` only, **never a heredoc** (heredocs introduce Co-Authored-By

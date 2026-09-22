@@ -9,17 +9,17 @@ opens as a draft, so CI runs nothing until `/pr-review-code` promotes it.
 
 ## Steps
 
-1. Run `git branch --show-current`. If the branch is `develop`, stop — never PR from develop to develop.
+1. Run `git branch --show-current`. If the branch is `develop`, stop, never PR from develop to develop.
 2. Run `git log develop..HEAD --oneline` to understand all commits in this branch.
 3. Run `git diff develop...HEAD --stat` to see what files changed.
 4. Check push status with `git status -sb`. If the branch is ahead of remote, push first with `git push`.
 5. Read `pr_template.md` at the repo root.
 6. Fill the template. Its `<!-- -->` comments are instructions for the drafter; follow them and leave them out of the body. Rules:
-   - **Title**: short imperative summary of what the branch adds/fixes — max 72 chars. Do not repeat the branch name verbatim.
+   - **Title**: short imperative summary of what the branch adds/fixes, max 72 chars. Do not repeat the branch name verbatim.
    - **Branch**: fill in the current branch name.
    - **Intro paragraph**: 2–3 sentences from the commit log and diff describing what this PR achieves and why.
    - **Type of change**: keep only the one that applies, remove the rest.
-   - **Breaking changes**: fill honestly — note `None` for each section that does not apply. Entity renames and storage changes are the two most common breaking surfaces for this integration.
+   - **Breaking changes**: fill honestly, note `None` for each section that does not apply. Entity renames and storage changes are the two most common breaking surfaces for this integration.
    - **Checklist**: check what is genuinely true. Unchecked means **not done**, so an item
      that cannot apply moves to the end of the list with `NA` in place of its checkbox
      (`- NA Entity registry migrations ...`). That records it as considered rather than
