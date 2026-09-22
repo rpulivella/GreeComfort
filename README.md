@@ -64,3 +64,7 @@ See [GitHub Releases](https://github.com/rpulivella/GreeComfort/releases) for th
 
 - **Original Integration**: [RobHofmann/HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent) v3.3.2
 - **Domain**: `gree_comfort` (distinct from the HACS `gree` domain — both can coexist)
+
+## License
+
+[GPL-3.0](LICENSE), inherited from the upstream integration this is forked from. See [`NOTICE`](NOTICE) for the origin and modification notice.

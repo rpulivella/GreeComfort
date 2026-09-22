@@ -1,0 +1,19 @@
+GreeComfort
+Copyright 2026 Richard P Ulivella
+
+Licensed under the GNU General Public License, version 3. See the LICENSE file for terms.
+
+Origin and modification notice
+------------------------------
+
+GreeComfort is a modified version of HomeAssistant-GreeClimateComponent
+(https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent) by Rob Hofmann and
+its contributors, forked at release 3.3.2 and licensed under the GNU General Public
+License, version 3. As that license requires, this notice states that the work has been
+modified.
+
+Modified from 2026-02-20 onward, including: a separate `gree_comfort` domain; comfort
+presets with separate heat and cool temperatures; manual override tracking; smart 8°C
+frost protection; Eco Shutoff; native °C units with Home Assistant conversion; hvac_action
+inferred from the unit's own temperature sensor; and a pytest suite. The git history
+records every change and its date.
