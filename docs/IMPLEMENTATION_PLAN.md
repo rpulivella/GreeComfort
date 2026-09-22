@@ -7,7 +7,7 @@ Custom fork of [HomeAssistant-GreeClimateComponent](https://github.com/RobHofman
 This implementation extends the base Gree integration with comprehensive comfort management features:
 
 - **Comfort Preset Modes**: Home, Sleep, Away, Off with dual heat/cool temperatures
-- **Number Entities**: User-configurable preset temperatures and idle tolerance (7 entities)
+- **Number Entities**: User-configurable preset temperatures and feature settings
 - **Manual Override Tracking**: Binary sensor detects manual temperature adjustments
 - **Clear Override Button**: One-tap return to preset temperature
 - **Cycle Management**: Optional compressor protection with configurable timing
@@ -75,9 +75,9 @@ User: Press "Clear Manual Override" button
 
 **Added**:
 - Preset mode constants and support flags
-- `_preset_mode`, `_preset_temps`, `_target_tolerance` state variables
+- `_preset_mode`, `_preset_temps` state variables
 - `_manual_override` flag and `_applying_preset` flag
-- Number entity references for preset temps and idle tolerance
+- Number entity references for preset temps
 - `preset_mode`, `preset_modes`, `hvac_action` properties
 - `async_set_preset_mode()` service method
 - `_apply_preset_temperature()` helper method
@@ -87,17 +87,17 @@ User: Press "Clear Manual Override" button
 - Enhanced `async_set_hvac_mode()` to apply preset temps
 - Enhanced `extra_state_attributes` with rounded preset temps
 - Cycle management logic in `_manage_temperature_cycling()`
-- HVAC action calculation with idle tolerance
+- HVAC action inferred from settled `TemSen` steps (`TemSenStepTracker` in `helpers.py`)
 
 **Modified**:
 - Imports: Added `async_dispatcher_send`, number/binary_sensor/button descriptions
-- `__init__`: Load preset temps and idle tolerance from number entities
+- `__init__`: Load preset temps from number entities
 
 ### Number Entities
 **File**: `custom_components/gree_comfort/number.py`
 
 **Features**:
-- 7 number entity descriptions (6 preset temps + 1 idle tolerance)
+- Number entity descriptions for 6 preset temps, Eco Shutoff tuning and the smart 8°C threshold
 - Native °C with temperature device classes; Home Assistant converts for display
 - Temperature-delta device class for Eco Shutoff margins
 - RestoreNumber persistence; values saved before 1.1.0 migrate once using their recorded unit
@@ -111,7 +111,6 @@ User: Press "Clear Manual Override" button
 4. `preset_sleep_cool` - Sleep preset cooling temperature
 5. `preset_away_heat` - Away preset heating temperature
 6. `preset_away_cool` - Away preset cooling temperature
-7. `target_tolerance` - Temperature tolerance for idle detection (±)
 
 ### Binary Sensor
 **File**: `custom_components/gree_comfort/binary_sensor.py`
@@ -154,7 +153,7 @@ User: Press "Clear Manual Override" button
 **Modified**:
 - Removed `__init__` from OptionsFlowHandler (HA 2026.x compatibility)
 - Removed preset temperature options (now handled by number entities)
-- Removed idle tolerance option (now handled by number entity)
+- Removed idle tolerance option (idle is inferred from TemSen steps)
 - Kept original options: HVAC modes, fan modes, swing modes, etc.
 - Added cycle management options:
   - `enforce_off_cycle` (boolean)
@@ -220,22 +219,14 @@ def hvac_action(self):
     elif mode == HVACMode.FAN_ONLY:
         return HVACAction.FAN
 
-    current = self._current_temperature
-    target = self._target_temperature
-    tolerance = self._target_tolerance
-
-    if current is None or target is None:
-        return HVACAction.IDLE
-
-    if mode == HVACMode.HEAT:
-        if current < target - tolerance:
-            return HVACAction.HEATING
-    elif mode == HVACMode.COOL:
-        if current > target + tolerance:
-            return HVACAction.COOLING
-
+    if mode == HVACMode.HEAT and self._temsen_active:
+        return HVACAction.HEATING
+    if mode == HVACMode.COOL and self._temsen_active:
+        return HVACAction.COOLING
     return HVACAction.IDLE
 ```
+
+`_temsen_active` comes from `TemSenStepTracker`, fed every poll with the raw °C `TemSen` reading. A reading settles after holding 3 minutes; a settled step toward the mode's direction marks the unit running until a step back or a timeout (35 minutes heat, 60 minutes cool). Mode changes re-baseline the tracker, and readings within 6 minutes of power-on are ignored. The thresholds come from TemSen, aux sensor and eco history from February to September 2026.
 
 ### Manual Override Detection
 
@@ -366,9 +357,9 @@ class GreeNumber(GreeEntity, NumberEntity, RestoreEntity):
 ✅ Preset persists across restarts
 
 ### HVAC Action
-✅ Reports HEATING when temp below target
-✅ Reports COOLING when temp above target
-✅ Reports IDLE when within tolerance
+✅ Reports HEATING after a settled TemSen step up in heat
+✅ Reports COOLING after a settled TemSen step down in cool
+✅ Reports IDLE after a step back or the run timeout
 ✅ Reports DRYING in dry mode
 ✅ Reports FAN in fan mode
 ✅ Reports OFF when powered off
