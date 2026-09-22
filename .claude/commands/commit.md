@@ -44,9 +44,13 @@ so subjects carry no bracketed id.
    - `.claude/settings.local.json`, `.env`, `.dev.vars`, or anything with secrets
    - `__pycache__/`, `.venv/`, `*.egg-info/`, `dist/`, `build/`, `.pytest_cache/`
    - anything under `workarea/` (scratch space) or `reference-original/` (local copy)
-6. Before committing, run `python3 -m py_compile` on every staged `.py` file and
-   `python3 -m json.tool` on every staged `.json` file. Remove any `__pycache__/` this
-   creates.
+6. Before committing, run the preflight and stop if any gate fails:
+   ```
+   .venv/bin/python3 scripts/pr-preflight-check.py
+   ```
+   It runs the whole pytest suite and parses every JSON file the integration ships. A
+   fresh clone needs the venv first: `uv venv -p 3.14 .venv` then
+   `VIRTUAL_ENV=.venv uv pip install -r requirements_test.txt`.
 7. Commit with inline `-m` only, **never a heredoc** (heredocs introduce Co-Authored-By
    footers):
    ```
@@ -80,7 +84,7 @@ Writing, changing or deleting tests is `chore:`.
   One commit for a whole pull request is almost always wrong.
 - **Small related changes may combine.** A message with "and" or a semicolon in it is
   fine; the sixty-character limit already stops that going far.
-- **Every commit compiles and loads.** No exceptions. "It works once the next one lands"
+- **Every commit's preflight is green.** No exceptions. "It works once the next one lands"
   is not two commits, it is one.
 - **Work the branch surfaces belongs to the branch**, in its own commit, even when it
   touches tooling, a skill or a template. It was discovered doing that work and should

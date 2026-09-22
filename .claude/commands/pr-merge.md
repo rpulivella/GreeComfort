@@ -24,9 +24,10 @@ it. GreeComfort has no ticket system, so there is no ticket to close and no boar
    commit or push first.
 3. **Refuse on anything but passing checks.** Run `gh pr checks <N>` and `gh pr view <N>
    --json isDraft,mergeable`. Stop on a draft, on `mergeable` other than `MERGEABLE`, or
-   on any check that is failing, pending or unreadable. "No checks reported" is accepted
-   only until the repository has CI workflows; once it does, a missing check means CI did
-   not run, and that is a refusal.
+   on any check that is failing, pending or unreadable. `preflight`, `hassfest` and
+   `readiness` must all be present and passing; a missing one means CI did not run, and
+   that is a refusal. Read the Merge Readiness comment too: an `attention` item (such as
+   a branch behind `develop`) is a decision to put to the user, not a pass.
 4. **Compose the merge subject: `PR #<N>: <PR title>`.** The PR title already follows the
    house format, so the subject reads `PR #4: fix: infer hvac_action from settled TemSen
    steps`. The PR identifier leads so `git log` on `develop` shows which pull request
