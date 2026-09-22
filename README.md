@@ -9,10 +9,10 @@ someone overrides them, and turns the unit off once the room is genuinely comfor
 
 It talks to the unit directly over your own network, with no cloud account and no Gree app.
 
-## What it does
+## Features
 
 A Gree air conditioner knows one target temperature and nothing else. Gree Comfort keeps the
-house's intentions on the Home Assistant side and leaves the unit to do what it is good at.
+house's intentions on the Home Assistant side and leaves the unit to do what it does best.
 
 - **Comfort presets.** Home, Sleep and Away each hold their own heating and cooling
   temperature, so a schedule or an automation switches intent rather than numbers. Changing the
@@ -31,7 +31,7 @@ house's intentions on the Home Assistant side and leaves the unit to do what it 
   features (X-fan, lights, quiet, turbo, health, power save) are numbers, switches and selects on
   the device page, so automations can reach all of them.
 
-## Why it works this way
+## Design
 
 Three facts about these units shape the whole design.
 
@@ -65,13 +65,13 @@ Three facts about these units shape the whole design.
 4. Search HACS for **Gree Comfort** and download it.
 5. Restart Home Assistant.
 
-### Manually
+### Manual install
 
 1. Copy `custom_components/gree_comfort/` from the latest release into your Home Assistant
    configuration folder, so it lands at `config/custom_components/gree_comfort/`.
 2. Restart Home Assistant.
 
-### Setting it up
+### Configuration
 
 1. Go to **Settings → Devices & Services → Add Integration** and choose **Gree Comfort**.
 2. Let it scan your network, or enter the unit's IP and MAC address yourself.
@@ -82,7 +82,7 @@ Three facts about these units shape the whole design.
 Gree Comfort uses its own `gree_comfort` domain, so it can run alongside Home Assistant's
 built-in `gree` integration on the same system.
 
-## How the features behave
+## Feature reference
 
 ### Presets
 
@@ -161,7 +161,7 @@ tests/                            pytest suite
 ## Credits
 
 Built on [RobHofmann/HomeAssistant-GreeClimateComponent](https://github.com/RobHofmann/HomeAssistant-GreeClimateComponent),
-starting from its 3.3.2 release, which is where the device protocol work comes from. Rob Hofmann
+starting from its 3.3.2 release, the source of the device protocol work. Rob Hofmann
 and that project's contributors did the hard part of speaking to these units, and the same GPL-3.0
 license carries forward here.
 
