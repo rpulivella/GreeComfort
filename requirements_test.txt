@@ -1,7 +1,7 @@
 # Pinned to the harness release that pins the Home Assistant version running live (2026.8.3).
 pytest-homeassistant-custom-component==0.13.357
 pytest-cov
-# The preflight and merge-readiness scripts print through rich.
+# The preflight script prints through rich.
 rich
 # The integration's own requirements, mirroring manifest.json.
 pycryptodome

@@ -16,10 +16,9 @@ makes sure that spend is on a branch that already passes locally.
 gate in one pass (pytest and the JSON gate) and reports all of them, so a failing run lists
 everything to fix rather than the first thing.
 
-**The preflight does not read the pull request itself.** The `readiness` check does, once
-the PR is out of draft, and its Merge Readiness comment carries what it found (template,
-checklist, title, commit subjects, base branch, dependencies). This review does not repeat
-those checks, and `/pr-merge` reads that comment before merging.
+**The preflight does not read the pull request itself**, so step 5 also reads the body
+against `pr_template.md`: every heading present, every checkbox checked or NA, no template
+comment left behind.
 
 ## Steps
 
@@ -55,7 +54,7 @@ those checks, and `/pr-merge` reads that comment before merging.
    ```
    gh pr ready <N>
    ```
-   CI then runs `preflight`, `hassfest` and `readiness`. Say that it has started; do not
+   CI then runs `preflight` and `hassfest`. Say that it has started; do not
    wait on it here. `/pr-merge` is where a red or missing check becomes a refusal.
 
 ## Waiving a stage
