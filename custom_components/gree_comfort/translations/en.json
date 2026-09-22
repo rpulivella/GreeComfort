@@ -6,8 +6,6 @@
     "abort": {
       "already_configured": "A device with this MAC address is already configured."
     },
-    "title": "Gree Climate",
-    "description": "Configure your Gree air conditioner",
     "step": {
       "user": {
         "title": "Gree Climate Setup",
@@ -43,21 +41,6 @@
           "encryption_version": "Encryption Version"
         }
       }
-    },
-    "data": {
-      "name": "Name",
-      "host": "IP Address",
-      "port": "Port",
-      "mac": "MAC Address",
-      "hvac_modes" : "HVAC Modes",
-      "fan_modes" : "Fan Modes",
-      "swing_modes" : "Vertical Swing Modes",
-      "swing_horizontal_modes" : "Horizontal Swing Modes",
-      "encryption_key": "Encryption Key",
-      "uid": "UID",
-      "encryption_version": "Encryption Version",
-      "disable_available_check": "Disable Available Check",
-      "temp_sensor_offset": "Temperature Sensor Offset"
     }
   },
   "options": {
@@ -65,10 +48,10 @@
       "init": {
         "title": "Gree Comfort Options",
         "data": {
-          "hvac_modes" : "HVAC Modes",
-          "fan_modes" : "Fan Modes",
-          "swing_modes" : "Vertical Swing Modes",
-          "swing_horizontal_modes" : "Horizontal Swing Modes",
+          "hvac_modes": "HVAC Modes",
+          "fan_modes": "Fan Modes",
+          "swing_modes": "Vertical Swing Modes",
+          "swing_horizontal_modes": "Horizontal Swing Modes",
           "disable_available_check": "Disable Available Check",
           "temp_sensor_offset": "Temperature Sensor Offset",
           "preset_home_heat": "Home - Heat Temperature",
@@ -140,7 +123,8 @@
   },
   "entity": {
     "climate": {
-      "state_attributes": {
+      "gree": {
+        "state_attributes": {
           "preset_mode": {
             "state": {
               "none": "None",
@@ -190,61 +174,49 @@
             }
           }
         }
-      },
+      }
+    },
     "number": {
       "target_temp_step": {
-        "name": "Temperature Step",
-        "description": "Sets the increment step for adjusting the target temperature."
+        "name": "Temperature Step"
       },
       "preset_home_heat": {
-        "name": "Home - Heat Temperature",
-        "description": "Target temperature for Home preset in heating mode."
+        "name": "Home - Heat Temperature"
       },
       "preset_home_cool": {
-        "name": "Home - Cool Temperature",
-        "description": "Target temperature for Home preset in cooling mode."
+        "name": "Home - Cool Temperature"
       },
       "preset_sleep_heat": {
-        "name": "Sleep - Heat Temperature",
-        "description": "Target temperature for Sleep preset in heating mode."
+        "name": "Sleep - Heat Temperature"
       },
       "preset_sleep_cool": {
-        "name": "Sleep - Cool Temperature",
-        "description": "Target temperature for Sleep preset in cooling mode."
+        "name": "Sleep - Cool Temperature"
       },
       "preset_away_heat": {
-        "name": "Away - Heat Temperature",
-        "description": "Target temperature for Away preset in heating mode."
+        "name": "Away - Heat Temperature"
       },
       "preset_away_cool": {
-        "name": "Away - Cool Temperature",
-        "description": "Target temperature for Away preset in cooling mode."
+        "name": "Away - Cool Temperature"
       },
       "eco_shutoff_satisfied_margin": {
-        "name": "Eco Shutoff — Satisfied Margin",
-        "description": "How many degrees past the setpoint the room must reach before Eco Shutoff cuts power. Larger values prevent rapid cycling."
+        "name": "Eco Shutoff — Satisfied Margin"
       },
       "eco_shutoff_reengage_delta": {
-        "name": "Eco Shutoff — Re-engage Delta",
-        "description": "How many degrees from the setpoint the room must drift before Eco Shutoff restores power."
+        "name": "Eco Shutoff — Re-engage Delta"
       },
       "eco_shutoff_trend_window_minutes": {
-        "name": "Eco Shutoff — Trend Window",
-        "description": "Minutes of stable temperature readings required to confirm satisfaction before cutting power. Re-engage is always immediate."
+        "name": "Eco Shutoff — Trend Window"
       },
       "stht_smart_threshold_minutes": {
-        "name": "Smart 8°C Threshold",
-        "description": "How long the Away or Sleep preset must be active in heating mode before Smart 8°C mode automatically engages frost protection."
+        "name": "Smart 8°C Threshold"
       }
     },
     "select": {
       "eco_shutoff_sensor": {
-        "name": "Eco Shutoff Temperature Sensor",
-        "description": "Temperature sensor used exclusively by Eco Shutoff. Must be an external sensor — the built-in AC sensor goes dark when the unit is off. Choose 'None' to make Eco Shutoff unavailable."
+        "name": "Eco Shutoff Temperature Sensor"
       },
       "preset_mode": {
         "name": "Comfort Mode",
-        "description": "Select the comfort preset mode (Home, Sleep, Away, or Off).",
         "state": {
           "home": "Home",
           "sleep": "Sleep",
@@ -255,122 +227,94 @@
     },
     "sensor": {
       "outside_temperature": {
-        "name": "Outside Temperature",
-        "description": "Shows the outside temperature measured by the air conditioner's external sensor."
+        "name": "Outside Temperature"
       },
       "room_humidity": {
-        "name": "Room Humidity",
-        "description": "Shows the room humidity level measured by the air conditioner's internal sensor."
+        "name": "Room Humidity"
       },
       "power_state": {
-        "name": "Power State",
-        "description": "Device power state (0=off, 1=on)"
+        "name": "Power State"
       },
       "device_mode": {
-        "name": "Device Mode",
-        "description": "Device operating mode code (0=auto, 1=cool, 2=dry, 3=fan, 4=heat)"
+        "name": "Device Mode"
       },
       "target_temp_raw": {
-        "name": "Target Temperature (Raw)",
-        "description": "Target temperature in device units"
+        "name": "Target Temperature (Raw)"
       },
       "fan_speed_raw": {
-        "name": "Fan Speed (Raw)",
-        "description": "Fan speed code (0=auto, 1=low, 2=med-low, 3=med, 4=med-high, 5=high)"
+        "name": "Fan Speed (Raw)"
       },
       "turbo_mode": {
-        "name": "Turbo Mode",
-        "description": "Turbo mode state (0=off, 1=on)"
+        "name": "Turbo Mode"
       },
       "quiet_mode": {
-        "name": "Quiet Mode",
-        "description": "Quiet mode state (0=off, 1=on)"
+        "name": "Quiet Mode"
       },
       "eco_shutoff_temperature": {
-        "name": "Eco Shutoff Temperature",
-        "description": "Current temperature reading from the configured Eco Shutoff auxiliary sensor."
+        "name": "Eco Shutoff Temperature"
       },
       "power_save_state": {
-        "name": "Gree Power Save State",
-        "description": "Gree firmware built-in power save mode state (SvSt). Separate from Eco Shutoff."
+        "name": "Gree Power Save State"
       }
     },
     "binary_sensor": {
       "manual_override": {
-        "name": "Manual Override",
-        "description": "Indicates when temperature has been manually adjusted away from comfort mode setting"
+        "name": "Manual Override"
       },
       "eco_shutoff_active": {
-        "name": "Eco Shutoff Active",
-        "description": "On while Eco Shutoff is holding the unit powered off because the room temperature is satisfied."
+        "name": "Eco Shutoff Active"
       }
     },
     "button": {
       "clear_manual_override": {
-        "name": "Clear Manual Override",
-        "description": "Resumes the scheduled preset, clearing any manual temperature override or away mode."
+        "name": "Clear Manual Override"
       }
     },
     "switch": {
       "xfan": {
-        "name": "X-Fan",
-        "description": "Enables or disables the X-Fan mode for extra drying when turning off."
+        "name": "X-Fan"
       },
       "lights": {
-        "name": "Lights",
-        "description": "Controls the display lights on the air conditioner unit."
+        "name": "Lights"
       },
       "health": {
-        "name": "Health",
-        "description": "Enables or disables the Health mode for air ionization and purification."
+        "name": "Health"
       },
       "powersave": {
-        "name": "Gree Power Save",
-        "description": "Gree firmware built-in power saving mode (SvSt). Reduces compressor output for efficiency in cooling mode. Separate from Eco Shutoff."
+        "name": "Gree Power Save"
       },
       "eightdegheat": {
-        "name": "8°C Heat",
-        "description": "Enables or disables the 8°C heating mode for frost protection. Only available in heating mode."
+        "name": "8°C Heat"
       },
       "sleep": {
-        "name": "Sleep",
-        "description": "Enables or disables the sleep mode for comfortable overnight operation. Only available in cooling or heating mode."
+        "name": "Sleep"
       },
       "air": {
-        "name": "Air",
-        "description": "Enables or disables the fresh air circulation mode."
+        "name": "Air"
       },
       "auto_xfan": {
-        "name": "Auto X-Fan",
-        "description": "Automatically controls the X-Fan mode based on HVAC operations. When enabled, X-Fan will automatically turn on in cooling and dry modes."
+        "name": "Auto X-Fan"
       },
       "auto_light": {
-        "name": "Auto Light",
-        "description": "Automatically controls the display lights based on HVAC operations. When enabled, lights will turn on/off with the AC unit."
+        "name": "Auto Light"
       },
       "anti_direct_blow": {
-        "name": "Anti Direct Blow",
-        "description": "Prevents direct air flow from blowing on people by adjusting the air deflector position."
+        "name": "Anti Direct Blow"
       },
       "light_sensor": {
-        "name": "Light Sensor",
-        "description": "Enables or disables light sensor for automatic brightness. Requires lights to be enabled."
+        "name": "Light Sensor"
       },
       "beeper": {
-        "name": "Beeper",
-        "description": "Controls the beeper sounds from the air conditioner unit. When enabled, the unit will make sounds for button presses and status changes."
+        "name": "Beeper"
       },
       "stht_smart": {
-        "name": "Smart 8°C Mode",
-        "description": "When enabled, automatically activates 8°C frost protection after the Away or Sleep preset has been active in heating mode for the configured threshold. The manual 8°C Heat switch continues to work independently."
+        "name": "Smart 8°C Mode"
       },
       "schedule_auto_release": {
-        "name": "Auto-Release Override on Preset Change",
-        "description": "When enabled, a scheduled preset change will automatically clear any active manual override and apply the scheduled preset immediately — as if the 'Clear Override' button were pressed. Default is off, meaning the schedule is silently stored but not applied while an override is active."
+        "name": "Auto-Release Override on Preset Change"
       },
       "eco_shutoff_enabled": {
-        "name": "Eco Shutoff",
-        "description": "Automatically powers the unit off when the room temperature has been satisfied and a trend confirms it will stay that way. Powers back on when temperature drifts. Requires an Eco Shutoff Temperature Sensor to be configured."
+        "name": "Eco Shutoff"
       }
     }
   },

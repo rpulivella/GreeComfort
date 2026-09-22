@@ -1,13 +1,20 @@
 {
   "domain": "gree_comfort",
   "name": "Gree Comfort",
-  "codeowners": ["@rpulivella"],
+  "codeowners": [
+    "@rpulivella"
+  ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "network"
+  ],
   "documentation": "https://github.com/rpulivella/GreeComfort",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/rpulivella/GreeComfort/issues",
-  "requirements": ["pycryptodome", "aiofiles"],
+  "requirements": [
+    "pycryptodome",
+    "aiofiles"
+  ],
   "version": "1.1.1"
 }
