@@ -34,14 +34,15 @@ CI runs `preflight` and `hassfest`, and only on a pull request that has left dra
 
 ### Units
 
-- **Every temperature is native °C inside the integration, and Home Assistant converts.** The
-  climate entity reports `temperature_unit = °C`; numbers and sensors declare a temperature device
-  class with a °C native unit; a service call arrives already converted to °C. Never hold, compare
-  or restore a value in the display unit. Comparing a °F setpoint with a °C sensor is how Eco
-  Shutoff never fired in heat and always fired in cool.
+- **Every temperature is °C inside the integration.** The climate entity and the sensors report
+  native °C and HA converts them; a climate service call arrives already in °C. Never hold,
+  compare or restore a value in the display unit. Comparing a °F setpoint with a °C sensor is how
+  Eco Shutoff never fired in heat and always fired in cool.
+- **Number entities are the exception: they report in the system unit, rounded to 0.1.** HA
+  rounds a converted number to the native value's decimal places, so a °C-native preset of
+  25.56 °C displays as 78.01 °F. The entity converts at its own boundary and stores °C.
 - **Differences are `temperature_delta`, never `temperature`.** A 2.5 °C margin is 4.5 °F, not
-  36.5 °F. HA does not pick a display unit for a delta number, so those report in the system unit
-  and convert with `TemperatureDeltaConverter`.
+  36.5 °F, and converts with `TemperatureDeltaConverter`.
 - **Unit logic outside HA's converters lives only at the device protocol boundary.**
   `_encode_setpoint` and `_decode_setpoint_c` are the pair: with a °F system a setpoint goes to the
   unit as whole °F through `gree_f_to_c`, so the unit's own display matches HA. Nothing else in the
