@@ -13,6 +13,9 @@
         "description": "Choose how to add your Gree air conditioner",
         "data": {
           "discovery": "Setup Method"
+        },
+        "data_description": {
+          "discovery": "Discovery finds units on your network automatically. Manual entry lets you type the IP and MAC address yourself."
         }
       },
       "discovery": {
@@ -20,6 +23,9 @@
         "description": "Found {devices_found} Gree device(s). Select one to add or choose manual setup.",
         "data": {
           "device": "Device"
+        },
+        "data_description": {
+          "device": "The unit to add. Choosing one that is already set up stops with a message."
         }
       },
       "detect_encryption": {
@@ -27,6 +33,9 @@
         "description": "Device connection successful. Enter a name for this device.",
         "data": {
           "name": "Device Name"
+        },
+        "data_description": {
+          "name": "The name shown for this unit in Home Assistant."
         }
       },
       "manual": {
@@ -40,6 +49,15 @@
           "encryption_key": "Encryption Key",
           "uid": "UID",
           "encryption_version": "Encryption Version"
+        },
+        "data_description": {
+          "name": "The name shown for this unit in Home Assistant.",
+          "host": "The IP address of the unit. Give it a fixed address or a DHCP reservation so it does not change.",
+          "port": "The UDP port the unit listens on. Leave the default unless you know your unit differs.",
+          "mac": "The MAC address of the unit. It identifies the unit, so it cannot be added twice.",
+          "encryption_key": "Optional. Leave empty unless you already know the key for your unit.",
+          "uid": "Optional. Leave empty unless you know your unit needs it.",
+          "encryption_version": "The encryption generation the unit uses, 1 or 2. Discovery detects it for you. For manual entry, try the other value if the connection fails."
         }
       }
     }
@@ -48,6 +66,7 @@
     "step": {
       "init": {
         "title": "Gree Comfort Options",
+        "description": "Limit the modes offered for this unit and adjust how it is read. Set the comfort preset temperatures on the device page.",
         "data": {
           "hvac_modes": "HVAC Modes",
           "fan_modes": "Fan Modes",
@@ -61,6 +80,14 @@
           "preset_sleep_cool": "Sleep - Cool Temperature",
           "preset_away_heat": "Away - Heat Temperature",
           "preset_away_cool": "Away - Cool Temperature"
+        },
+        "data_description": {
+          "hvac_modes": "The operating modes offered for this unit. Remove any the unit does not support.",
+          "fan_modes": "The fan speeds offered for this unit. Remove any the unit does not support.",
+          "swing_modes": "The vertical swing positions offered for this unit. Remove any the unit does not support.",
+          "swing_horizontal_modes": "The horizontal swing positions offered for this unit. Remove any the unit does not support.",
+          "disable_available_check": "Keep the unit available in Home Assistant even when it stops answering. Turn on only if the unit drops offline often and you prefer that to showing it unavailable.",
+          "temp_sensor_offset": "Turn on if the unit's own temperature reads 40 degrees too high, off if it reads correctly. If you never set this, the offset is detected automatically."
         }
       }
     }
