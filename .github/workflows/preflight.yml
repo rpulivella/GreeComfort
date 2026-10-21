@@ -26,9 +26,9 @@ jobs:
     # A run takes a few minutes; the runner default of 360 would let one hung job burn the monthly allowance.
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           # The one interpreter `requires-python` declares, so the claim lives in one place.
           python-version-file: pyproject.toml
@@ -81,5 +81,5 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: home-assistant/actions/hassfest@master
