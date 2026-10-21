@@ -153,7 +153,6 @@ boundary, so request building, encryption and the polling loop are all exercised
 custom_components/gree_comfort/   the integration
   brand/                          icon and logo Home Assistant serves
   translations/                   strings
-docs/                             design notes and implementation history
 scripts/                          the preflight CI runs
 tests/                            pytest suite
 ```
