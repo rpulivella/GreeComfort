@@ -15,7 +15,7 @@
           "discovery": "Setup Method"
         },
         "data_description": {
-          "discovery": "Discovery finds units on your network automatically. Manual entry lets you type the IP and MAC address yourself."
+          "discovery": "Discovery finds units on your network automatically. Manual entry means you type the IP and MAC address yourself."
         }
       },
       "discovery": {
@@ -25,7 +25,7 @@
           "device": "Device"
         },
         "data_description": {
-          "device": "The unit to add. Choosing one that is already set up stops with a message."
+          "device": "The unit to add. Choosing a unit set up earlier stops with a message."
         }
       },
       "detect_encryption": {
@@ -53,10 +53,10 @@
         "data_description": {
           "name": "The name shown for this unit in Home Assistant.",
           "host": "The IP address of the unit. Give it a fixed address or a DHCP reservation so it does not change.",
-          "port": "The UDP port the unit listens on. Leave the default unless you know your unit differs.",
+          "port": "The UDP port the unit uses. Leave the default unless you know your unit differs.",
           "mac": "The MAC address of the unit. It identifies the unit, so it cannot be added twice.",
-          "encryption_key": "Optional. Leave empty unless you already know the key for your unit.",
-          "uid": "Optional. Leave empty unless you know your unit needs it.",
+          "encryption_key": "This field is optional, so leave it empty unless you already know the key for your unit.",
+          "uid": "This field is optional, so leave it empty unless you know your unit needs it.",
           "encryption_version": "The encryption generation the unit uses, 1 or 2. Discovery detects it for you. For manual entry, try the other value if the connection fails."
         }
       }
