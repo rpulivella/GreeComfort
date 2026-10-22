@@ -373,6 +373,8 @@ def extractPythonProse(text: str) -> str:
     # proto import. Those are samples, not sentences, exactly as a markdown fence
     # is, so they come out before any prose rule sees them.
     out = "".join(keep)
+    # A docstring's own quotes go first, or a one-line docstring reads as a sample.
+    out = re.sub(r'"""|\'\'\'', blankSpan, out)
     out = re.sub(r"`[^`\n]*`", blankSpan, out)
     return re.sub(r'"[^"\n]*"', blankSpan, out)
 
@@ -428,8 +430,6 @@ def extractConsoleProse(text: str) -> str:
                 keep[start:end] = text[start:end]
 
     out = "".join(keep)
-    # A docstring's own quotes go first, or a one-line docstring reads as a sample.
-    out = re.sub(r'"""|\'\'\'', blankSpan, out)
     # Rich markup tags are machine syntax, not words.
     out = re.sub(r"\[/?[a-z][^\]]*\]", blankSpan, out)
     return re.sub(r"`[^`\n]*`", blankSpan, out)
