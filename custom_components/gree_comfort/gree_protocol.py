@@ -229,8 +229,7 @@ async def discover_gree_devices(hass, timeout=5):
                         pack = response["pack"]
                         decoded_pack = base64.b64decode(pack)
 
-                        # Discovery responses typically use level 1 encryption (ECB mode)
-                        # But we need to test which encryption the device actually uses for communication
+                        # Discovery responses typically use level 1 encryption (ECB mode), but test which one the device actually uses
                         pack_json = None
 
                         try:
