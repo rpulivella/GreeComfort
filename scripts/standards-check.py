@@ -14,6 +14,7 @@ function above it is named well is not.
 What that leaves in scope, and why it includes Python:
 
   - Markdown: README, CONTRIBUTING, CLAUDE.md, docs and the skills.
+  - JSON under a `translations` directory: its string values, never its keys.
   - Python DOCSTRINGS, COMMENTS AND CONSOLE OUTPUT, because a developer reading
     source is an audience, and so is anyone reading what a script prints.
     Everything else in a .py file is blanked before a prose rule runs.
@@ -45,6 +46,8 @@ It depends on nothing outside the standard library. `rich` is used when it is
 installed and a plain-text fallback is used when it is not.
 
 UPDATES
+2026-10-22  Translations files are in scope, since their strings are what a user
+            reads in the interface. Not an upstream change.
 2026-10-22  Re-imported from pybers: fails the phrases the writing rules added and
             a sentence opening on a conjunction, reads comments through the
             tokenizer, and checks a line that opens with a code span.
@@ -115,6 +118,12 @@ allRoots: tuple[str, ...] = (
     "custom_components", "tests", "scripts", "docs", ".claude", ".github",
 )
 checkExtensions: tuple[str, ...] = (".py", ".md")
+
+
+def isCheckable(path: Path) -> bool:
+    """A Python or Markdown file, or a translations file, whose strings users read."""
+    return path.suffix in checkExtensions or (
+        path.suffix == ".json" and "translations" in path.parts)
 
 # Files that DOCUMENT the banned language rather than commit it. They state the
 # forbidden words in order to forbid them, so flagging them is pure noise.
@@ -426,6 +435,21 @@ def extractConsoleProse(text: str) -> str:
     return re.sub(r"`[^`\n]*`", blankSpan, out)
 
 
+def extractJsonProse(text: str) -> str:
+    """A translations file with every key, quote and brace blanked, values kept.
+
+    A string a user reads in the interface is prose, and it sat outside the gate
+    until `listens on` and an em dash reached a form through it.
+    """
+    def keepValue(match: re.Match) -> str:
+        if match.group(2):
+            return blankSpan(match)
+        return f" {match.group(1)} "
+
+    out = re.sub(r'"((?:[^"\\]|\\.)*)"(\s*:)?', keepValue, text)
+    return re.sub(r"[{}\[\],:]", " ", out)
+
+
 def mergeViews(first: str, second: str) -> str:
     """Combine two blanked views of one file, keeping offsets intact."""
     return "".join(a if a != " " else b for a, b in zip(first, second, strict=True))
@@ -652,6 +676,8 @@ def checkFile(path: Path, findings: list, text: str | None = None) -> None:
         # reporting the syntax error is ruff's job rather than this gate's.
         with contextlib.suppress(SyntaxError):
             checkDocstringShape(path, ast.parse(body), findings)
+    elif suffix == ".json":
+        prose = extractJsonProse(body)
     else:
         prose = extractMarkdownProse(body)
 
@@ -679,7 +705,7 @@ def collectFiles(arguments: argparse.Namespace, warnings: list) -> list[Path]:
             candidate = Path(raw)
             if candidate.is_dir():
                 for child in sorted(candidate.rglob("*")):
-                    if child.suffix in checkExtensions and child.is_file() \
+                    if isCheckable(child) and child.is_file() \
                             and not any(
                                 marker in child.as_posix()
                                 for marker in generatedOnly
@@ -698,7 +724,7 @@ def collectFiles(arguments: argparse.Namespace, warnings: list) -> list[Path]:
             if not base.is_dir():
                 continue
             for child in sorted(base.rglob("*")):
-                if child.suffix in checkExtensions and child.is_file():
+                if isCheckable(child) and child.is_file():
                     found.append(child)
         for extra in sorted(Path(".").glob("*.md")):
             found.append(extra)
@@ -722,7 +748,7 @@ def collectFiles(arguments: argparse.Namespace, warnings: list) -> list[Path]:
             candidate = Path(line.strip())
             if (
                 line.strip()
-                and candidate.suffix in checkExtensions
+                and isCheckable(candidate)
                 and candidate.is_file()
             ):
                 changed.add(candidate)
