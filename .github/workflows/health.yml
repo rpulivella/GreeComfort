@@ -1,0 +1,60 @@
+# Checks develop after something lands on it: a pull request the preflight saw only
+# against an older develop, or an administrator's direct push it never saw. It posts
+# nothing and gates nothing; its verdict is the commit's mark and the README's badge.
+name: health
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+# A newer push supersedes a run in progress, but a canceled run would read as a
+# verdict on the badge, so each run finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    # A run takes a few minutes; the runner default of 360 would let one hung job burn the monthly allowance.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: pyproject.toml
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install the test requirements
+        run: pip install -r requirements_test.txt
+
+      - name: Every gate
+        run: python scripts/pr-preflight-check.py
+
+  hassfest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: hacs/action@main
+        with:
+          category: integration

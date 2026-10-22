@@ -1,6 +1,7 @@
 # Gree Comfort
 
 [![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![health](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml/badge.svg?branch=develop)](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml)
 [![Release](https://img.shields.io/github/v/release/rpulivella/GreeComfort)](https://github.com/rpulivella/GreeComfort/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
