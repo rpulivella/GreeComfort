@@ -1,0 +1,41 @@
+name: Request a feature
+description: Something Gree Comfort should do that it does not do yet.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: Describe what you are trying to get done rather than how Gree Comfort should do it, so the maintainer can weigh the options.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the existing issues and found no request for this
+          required: true
+        - label: This request is not a bug report
+          required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What do you want to do?
+      placeholder: Keep the bedroom cooler than the rest of the house between midnight and six.
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      placeholder: I change the target temperature by hand every night.
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why does it matter to you?
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: An example
+      description: Optional. An automation, a card or a sequence of steps that shows what you mean.

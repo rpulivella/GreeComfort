@@ -1,0 +1,17 @@
+name: Ask a question
+description: How to do something with Gree Comfort, or why it behaves as it does.
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: What you are trying to do, and what you have tried.
+      placeholder: Why did Eco Shutoff keep the unit off while the room was warmer than the target?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Optional. Your settings, an automation, or the steps you took.

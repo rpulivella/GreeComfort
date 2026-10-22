@@ -1,0 +1,90 @@
+name: Report a bug
+description: Gree Comfort behaves wrongly, or fails.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: A security problem goes through the [security policy](https://github.com/rpulivella/GreeComfort/blob/develop/SECURITY.md) instead, never a public issue.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you file
+      options:
+        - label: I searched the existing issues and found no report of this
+          required: true
+        - label: It happens on the latest release of Gree Comfort
+          required: true
+        - label: This report is not a feature request
+          required: true
+  - type: input
+    id: integration
+    attributes:
+      label: Gree Comfort version
+      description: Shown on the integration's page in HACS.
+    validations:
+      required: true
+  - type: input
+    id: home-assistant
+    attributes:
+      label: Home Assistant version
+      description: Shown under Settings, About.
+    validations:
+      required: true
+  - type: dropdown
+    id: unit-system
+    attributes:
+      label: Home Assistant unit system
+      description: Shown under Settings, System, General. A temperature fault often depends on it.
+      options:
+        - Metric (°C)
+        - US customary (°F)
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Air conditioner model
+      description: Optional. The model printed on the indoor unit.
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is affected?
+      options:
+        - Setup or the options form
+        - The climate entity (mode, fan, swing, target temperature)
+        - Comfort presets
+        - Manual override tracking
+        - Eco Shutoff
+        - Smart 8°C frost protection
+        - Another entity (sensor, number, switch, button)
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps taken
+      description: The shortest sequence that still shows the problem.
+      placeholder: |
+        1. Set the preset to Sleep while the unit is heating.
+        2. Change the target temperature on the climate card.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: Optional. Lines from Settings, System, Logs that mention gree_comfort. Remove IP addresses, MAC addresses, host names and anything else that identifies your home before you paste.
+      render: text
