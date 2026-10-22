@@ -14,7 +14,7 @@ class TempOffsetResolver:
     stored (min & max raw).
 
     Note: This could be simplified by just using 40C as a max point
-    for the unoffset case and a min point for the offset case. But
+    for the unoffset case and a min point for the offset case, but
     this does not account for the marginal cases around 40C as well.
 
     Example:

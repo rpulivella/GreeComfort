@@ -1034,8 +1034,7 @@ class GreeClimate(ClimateEntity):
                 await self.SyncState({"SetTem": int(SetTem), "TemRec": int(TemRec)})
                 _LOGGER.debug(f"{self._name}: async_set_temperature: Set Temp to {target_temperature}{self._unit_of_measurement} ->  SyncState with SetTem={SetTem}, SyncState with TemRec={TemRec}")
 
-                # Mark as manual override - user has taken control of temperature
-                # But not if we are applying a preset temperature programmatically
+                # A user change is a manual override, but not while a preset is applied programmatically
                 if not getattr(self, '_applying_preset', False):
                     self._set_manual_override(True)
                     _LOGGER.info(f"{self._name}: Manual override activated - temperature set to {target_temperature}{self._unit_of_measurement}")
