@@ -17,6 +17,7 @@ concurrency:
 permissions:
   contents: read
 
+# Mirror any job added to preflight.yml or validate.yaml here, or the badge stays green while that check fails.
 jobs:
   preflight:
     runs-on: ubuntu-latest
