@@ -45,6 +45,9 @@ It depends on nothing outside the standard library. `rich` is used when it is
 installed and a plain-text fallback is used when it is not.
 
 UPDATES
+2026-10-22  Re-imported from pybers: fails the phrases the writing rules added and
+            a sentence opening on a conjunction, reads comments through the
+            tokenizer, and checks a line that opens with a code span.
 2026-09-22  Imported from pybers for GreeComfort: its scope, no hard dependency
             on rich, and the generated-code exclusions dropped with the protobuf
             they described.
@@ -63,9 +66,12 @@ __usage__ = "python3 scripts/standards-check.py [--all | PATH ... | --text STRIN
 import argparse
 import ast
 import contextlib
+import io
+import itertools
 import re
 import subprocess
 import sys
+import tokenize
 from pathlib import Path
 
 try:
@@ -202,6 +208,27 @@ bannedPhrases: tuple[tuple[re.Pattern, str], ...] = (
      "corporate filler, use use / apply / draw on / build on"),
     (re.compile(r"\bstanding\s+up\b", re.I),
      "corporate filler, use opening / building / bringing online"),
+    (re.compile(r"\bcircl(?:e|es|ed|ing)\s+back\b", re.I),
+     "corporate filler, name when and what instead"),
+    # Covers "no longer is the hard part" too, so that phrase reports once.
+    (re.compile(r"\bis\s+the\s+hard\s+part\b", re.I),
+     "banned phrase, state the claim directly"),
+    (re.compile(r"\bthe\s+(?:one|part)\s+that\s+matters\b", re.I),
+     "banned phrase, state the claim directly"),
+    (re.compile(r"\bcorp(?:us|uses|ora)\b", re.I),
+     "use reference materials, context files or archive"),
+    (re.compile(r"\bhand[-\s]+cod(?:e|ed|es|ing)\b|\bbuilt\s+by\s+hand\b", re.I),
+     "misrepresents how the code is made"),
+)
+
+# A sentence never opens on a conjunction or a preamble. Case-sensitive, because a
+# capital marks the opening: a wrapped line that starts `and` continues a sentence.
+# A comment's `#` and a docstring's opening quote stay in the prose view.
+sentenceOpenerRe = re.compile(
+    r"(?:^[ \t]*(?:#+[ \t]*|[\"'][ \t]*|[-*>][ \t]+|\d+\.[ \t]+)?"
+    r"|[.!?][\"'”’)\]]*[ \t\n]+)"
+    r"(And|But|So|Allow\s+me|Let\s+us)\b",
+    re.MULTILINE,
 )
 
 # "isn't just X, it's Y" and its variants.  Banned as a rhetorical move, not as
@@ -231,7 +258,7 @@ strandedPrepRe = re.compile(
 # A product never "lets" a user do something.  The JS/CSS keyword carve-out the
 # site needs does not arise here, because prose checks never see code.
 weakLetRe = re.compile(r"\b(lets?|letting)\b", re.IGNORECASE)
-letCarveOut = re.compile(r"\blet\s+(alone|us|me|it\s+be)\b", re.IGNORECASE)
+letCarveOut = re.compile(r"\blet\s+(alone|me|it\s+be)\b", re.IGNORECASE)
 
 semicolonMax: int = 1
 
@@ -303,8 +330,14 @@ def extractPythonProse(text: str) -> str:
     """
     keep = ["\n" if character == "\n" else " " for character in text]
 
-    for match in re.finditer(r"#[^\n]*", text):
-        keep[match.start():match.end()] = text[match.start():match.end()]
+    offsets = list(itertools.accumulate((len(line) + 1 for line in text.split("\n")),
+                                        initial=0))
+    # A pattern read a `#` inside a string as a comment, and the tokenizer never does.
+    with contextlib.suppress(tokenize.TokenError, SyntaxError):
+        for token in tokenize.generate_tokens(io.StringIO(text).readline):
+            if token.type == tokenize.COMMENT:
+                start = offsets[token.start[0] - 1] + token.start[1]
+                keep[start:start + len(token.string)] = token.string
 
     try:
         tree = ast.parse(text)
@@ -386,6 +419,8 @@ def extractConsoleProse(text: str) -> str:
                 keep[start:end] = text[start:end]
 
     out = "".join(keep)
+    # A docstring's own quotes go first, or a one-line docstring reads as a sample.
+    out = re.sub(r'"""|\'\'\'', blankSpan, out)
     # Rich markup tags are machine syntax, not words.
     out = re.sub(r"\[/?[a-z][^\]]*\]", blankSpan, out)
     return re.sub(r"`[^`\n]*`", blankSpan, out)
@@ -403,9 +438,11 @@ def extractMarkdownProse(text: str) -> str:
     every reported line number true to the file on disk.
     """
     out = re.sub(r"```.*?```", blankSpan, text, flags=re.DOTALL)
+    # Found on the original text: a blanked span at a line's start reads as indentation.
+    for match in re.finditer(r"^\s{4,}\S[^\n]*$", text, flags=re.MULTILINE):
+        out = out[:match.start()] + blankSpan(match) + out[match.end():]
     out = re.sub(r"`[^`\n]*`", blankSpan, out)
-    out = re.sub(r"\]\([^)]*\)", blankSpan, out)
-    return re.sub(r"^\s{4,}\S[^\n]*$", blankSpan, out, flags=re.MULTILINE)
+    return re.sub(r"\]\([^)]*\)", blankSpan, out)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -477,11 +514,22 @@ def checkBannedPhrases(path: Path, prose: str, findings: list) -> None:
         return
     for pattern, hint in bannedPhrases:
         for match in pattern.finditer(prose):
+            phrase = " ".join(match.group(0).split())
             findings.append(("FAIL", path, findLineNumber(prose, match.start()),
-                             f"'{match.group(0)}', {hint}"))
+                             f"'{phrase}', {hint}"))
     for match in notJustRe.finditer(prose):
         findings.append(("FAIL", path, findLineNumber(prose, match.start()),
                          f"'{match.group(0)}', state the claim directly"))
+
+
+def checkSentenceOpener(path: Path, prose: str, findings: list) -> None:
+    """A sentence opens on its subject, never on And, But, So, Allow me or Let us."""
+    if isRuleDoc(path, "banned"):
+        return
+    for match in sentenceOpenerRe.finditer(prose):
+        opener = " ".join(match.group(1).split())
+        findings.append(("FAIL", path, findLineNumber(prose, match.start(1)),
+                         f"sentence opens with '{opener}', open on the subject"))
 
 
 def checkWeakLet(path: Path, prose: str, findings: list) -> None:
@@ -612,8 +660,9 @@ def checkFile(path: Path, findings: list, text: str | None = None) -> None:
     checkCoAuthored(path, body, local)
     checkHardBreak(path, body, local)
     for check in (checkContractions, checkBritish, checkEmDash, checkBannedPhrases,
-                  checkWeakLet, checkSplitVerb, checkStrandedPreposition,
-                  checkYearHyphen, checkEllipsis, checkSemicolons):
+                  checkSentenceOpener, checkWeakLet, checkSplitVerb,
+                  checkStrandedPreposition, checkYearHyphen, checkEllipsis,
+                  checkSemicolons):
         check(path, prose, local)
 
     # A file-level finding reports line 0 and cannot be suppressed this way, by
