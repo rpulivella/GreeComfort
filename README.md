@@ -50,7 +50,7 @@ Three facts about these units shape the whole design.
 
 ## Requirements
 
-- Home Assistant **2026.8** or newer.
+- Home Assistant **2026.10** or newer.
 - A Gree air conditioner (or a unit using Gree's protocol, sold under many brands) reachable on
   your network. Both encryption generations are supported and detected during setup.
 - For Eco Shutoff, a temperature sensor in the room. Any Home Assistant temperature sensor works.
