@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 
 # Third-party imports
-import voluptuous as vol
+import probatio
 
 # Home Assistant imports
 from homeassistant import config_entries
@@ -67,9 +67,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_manual()
 
         # Show discovery vs manual choice
-        data_schema = vol.Schema(
+        data_schema = probatio.Schema(
             {
-                vol.Required("discovery", default="discover"): selector.SelectSelector(
+                probatio.Required("discovery", default="discover"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=["discover", "manual"],
                         translation_key="discovery_method",
@@ -112,7 +112,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device_id = f"{device['mac']}_{device['host']}"
             device_options[device_id] = f"IP: {device['host']}, MAC: {device['mac']}"
 
-        data_schema = vol.Schema({vol.Required("device"): vol.In(device_options)})
+        data_schema = probatio.Schema({probatio.Required("device"): probatio.In(device_options)})
 
         return self.async_show_form(step_id="discovery", data_schema=data_schema, description_placeholders={"devices_found": str(len(self._discovered_devices))})
 
@@ -137,9 +137,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not is_connection_valid:
                 return self.async_show_form(
                     step_id="detect_encryption",
-                    data_schema=vol.Schema(
+                    data_schema=probatio.Schema(
                         {
-                            vol.Required(CONF_NAME, default=device_name): str,
+                            probatio.Required(CONF_NAME, default=device_name): str,
                         }
                     ),
                     errors={"base": "cannot_connect"},
@@ -167,15 +167,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Show manual form with error about encryption detection failure
             return self.async_show_form(
                 step_id="manual",
-                data_schema=vol.Schema(
+                data_schema=probatio.Schema(
                     {
-                        vol.Required(CONF_NAME, default=self._data.get(CONF_NAME, "")): str,
-                        vol.Required(CONF_HOST, default=self._data.get(CONF_HOST, "")): str,
-                        vol.Required(CONF_MAC, default=self._data.get(CONF_MAC, "")): str,
-                        vol.Required(CONF_PORT, default=self._data.get(CONF_PORT, DEFAULT_PORT)): int,
-                        vol.Optional(CONF_ENCRYPTION_KEY, default=self._data.get(CONF_ENCRYPTION_KEY, "")): str,
-                        vol.Optional(CONF_UID): int,
-                        vol.Optional(CONF_ENCRYPTION_VERSION, default=self._data.get(CONF_ENCRYPTION_VERSION, 1)): int,
+                        probatio.Required(CONF_NAME, default=self._data.get(CONF_NAME, "")): str,
+                        probatio.Required(CONF_HOST, default=self._data.get(CONF_HOST, "")): str,
+                        probatio.Required(CONF_MAC, default=self._data.get(CONF_MAC, "")): str,
+                        probatio.Required(CONF_PORT, default=self._data.get(CONF_PORT, DEFAULT_PORT)): int,
+                        probatio.Optional(CONF_ENCRYPTION_KEY, default=self._data.get(CONF_ENCRYPTION_KEY, "")): str,
+                        probatio.Optional(CONF_UID): int,
+                        probatio.Optional(CONF_ENCRYPTION_VERSION, default=self._data.get(CONF_ENCRYPTION_VERSION, 1)): int,
                     }
                 ),
                 errors={"base": "cannot_connect"},
@@ -185,9 +185,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._selected_device["encryption_version"] = encryption_version
 
         # Show device naming form with detected info
-        data_schema = vol.Schema(
+        data_schema = probatio.Schema(
             {
-                vol.Required(CONF_NAME, default=self._selected_device["name"]): str,
+                probatio.Required(CONF_NAME, default=self._selected_device["name"]): str,
             }
         )
 
@@ -211,15 +211,15 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         # Set defaults from user_input if present, else use hardcoded defaults
         defaults = user_input or self._data
-        data_schema = vol.Schema(
+        data_schema = probatio.Schema(
             {
-                vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
-                vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
-                vol.Required(CONF_MAC, default=defaults.get(CONF_MAC, "")): str,
-                vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): int,
-                vol.Optional(CONF_ENCRYPTION_KEY, default=defaults.get(CONF_ENCRYPTION_KEY, "")): str,
-                vol.Optional(CONF_UID): int,
-                vol.Optional(CONF_ENCRYPTION_VERSION, default=defaults.get(CONF_ENCRYPTION_VERSION, 1)): int,
+                probatio.Required(CONF_NAME, default=defaults.get(CONF_NAME, "")): str,
+                probatio.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): str,
+                probatio.Required(CONF_MAC, default=defaults.get(CONF_MAC, "")): str,
+                probatio.Required(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): int,
+                probatio.Optional(CONF_ENCRYPTION_KEY, default=defaults.get(CONF_ENCRYPTION_KEY, "")): str,
+                probatio.Optional(CONF_UID): int,
+                probatio.Optional(CONF_ENCRYPTION_VERSION, default=defaults.get(CONF_ENCRYPTION_VERSION, 1)): int,
             }
         )
         return self.async_show_form(step_id="manual", data_schema=data_schema, errors=errors)
@@ -268,36 +268,36 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         options = {key: value for key, value in self.config_entry.options.items() if key in OPTION_KEYS}
         _LOGGER.debug("Current stored options: %s", options)
 
-        schema = vol.Schema(
+        schema = probatio.Schema(
             {
-                vol.Optional(
+                probatio.Optional(
                     CONF_HVAC_MODES,
                     description={"suggested_value": options.get(CONF_HVAC_MODES, DEFAULT_HVAC_MODES)},
                     default=options.get(CONF_HVAC_MODES, DEFAULT_HVAC_MODES),
-                ): vol.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_HVAC_MODES, multiple=True, custom_value=True, translation_key=CONF_HVAC_MODES))),
-                vol.Optional(
+                ): probatio.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_HVAC_MODES, multiple=True, custom_value=True, translation_key=CONF_HVAC_MODES))),
+                probatio.Optional(
                     CONF_FAN_MODES,
                     description={"suggested_value": options.get(CONF_FAN_MODES, DEFAULT_FAN_MODES)},
                     default=options.get(CONF_FAN_MODES, DEFAULT_FAN_MODES),
-                ): vol.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_FAN_MODES, multiple=True, custom_value=True, translation_key=CONF_FAN_MODES))),
-                vol.Optional(
+                ): probatio.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_FAN_MODES, multiple=True, custom_value=True, translation_key=CONF_FAN_MODES))),
+                probatio.Optional(
                     CONF_SWING_MODES,
                     description={"suggested_value": options.get(CONF_SWING_MODES, DEFAULT_SWING_MODES)},
                     default=options.get(CONF_SWING_MODES, DEFAULT_SWING_MODES),
-                ): vol.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_SWING_MODES, multiple=True, custom_value=True, translation_key=CONF_SWING_MODES))),
-                vol.Optional(
+                ): probatio.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_SWING_MODES, multiple=True, custom_value=True, translation_key=CONF_SWING_MODES))),
+                probatio.Optional(
                     CONF_SWING_HORIZONTAL_MODES,
                     description={"suggested_value": options.get(CONF_SWING_HORIZONTAL_MODES, DEFAULT_SWING_HORIZONTAL_MODES)},
                     default=options.get(CONF_SWING_HORIZONTAL_MODES, DEFAULT_SWING_HORIZONTAL_MODES),
-                ): vol.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_SWING_HORIZONTAL_MODES, multiple=True, custom_value=True, translation_key=CONF_SWING_HORIZONTAL_MODES))),
-                vol.Optional(
+                ): probatio.Any(None, selector.SelectSelector(selector.SelectSelectorConfig(options=DEFAULT_SWING_HORIZONTAL_MODES, multiple=True, custom_value=True, translation_key=CONF_SWING_HORIZONTAL_MODES))),
+                probatio.Optional(
                     CONF_DISABLE_AVAILABLE_CHECK,
                     default=options.get(CONF_DISABLE_AVAILABLE_CHECK, False),
                 ): bool,
-                vol.Optional(
+                probatio.Optional(
                     CONF_TEMP_SENSOR_OFFSET,
                     description={"suggested_value": options.get(CONF_TEMP_SENSOR_OFFSET)},
-                ): vol.Any(None, bool),
+                ): probatio.Any(None, bool),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
