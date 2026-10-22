@@ -140,7 +140,7 @@ manual 8°C switch keeps working on its own.
 `CONTRIBUTING.md` carries the workflow: commits, branches, pull requests, merges and releases.
 
 ```bash
-uv venv -p 3.14 .venv
+uv venv -p <python version> .venv   # at or above requires-python in pyproject.toml, and one Home Assistant supports
 VIRTUAL_ENV=.venv uv pip install -r requirements_test.txt
 .venv/bin/python3 scripts/pr-preflight-check.py   # every gate, what CI runs
 ```

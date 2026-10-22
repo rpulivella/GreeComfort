@@ -50,7 +50,8 @@ so subjects carry no bracketed id.
    ```
    It runs the whole pytest suite, the prose gate over every document, and parses every JSON file
    the integration and HACS read. A
-   fresh clone needs the venv first: `uv venv -p 3.14 .venv` then
+   fresh clone needs the venv first: `uv venv -p <python version> .venv`, a
+   version `pyproject.toml` allows and Home Assistant supports, then
    `VIRTUAL_ENV=.venv uv pip install -r requirements_test.txt`.
 7. Commit with inline `-m` only, **never a heredoc** (heredocs introduce Co-Authored-By
    footers):
