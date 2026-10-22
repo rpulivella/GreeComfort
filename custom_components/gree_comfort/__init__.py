@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 
 # Third-party imports
-import voluptuous as vol
+import probatio
 
 # Home Assistant imports
 from homeassistant.config_entries import ConfigEntry
@@ -46,25 +46,25 @@ PLATFORMS = [Platform.CLIMATE, Platform.SWITCH, Platform.NUMBER, Platform.SELECT
 _LOGGER = logging.getLogger(__name__)
 
 # YAML configuration schema
-CLIMATE_SCHEMA = vol.Schema(
+CLIMATE_SCHEMA = probatio.Schema(
     {
-        vol.Required(CONF_NAME): cv.string,
-        vol.Required(CONF_HOST): cv.string,
-        vol.Required(CONF_MAC): cv.string,
-        vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
-        vol.Optional(CONF_ENCRYPTION_KEY): cv.string,
-        vol.Optional(CONF_UID): cv.positive_int,
-        vol.Optional(CONF_ENCRYPTION_VERSION, default=1): vol.In([1, 2]),
-        vol.Optional(CONF_HVAC_MODES, default=DEFAULT_HVAC_MODES): vol.All(cv.ensure_list, [cv.string]),
-        vol.Optional(CONF_FAN_MODES, default=DEFAULT_FAN_MODES): vol.All(cv.ensure_list, [cv.string]),
-        vol.Optional(CONF_SWING_MODES, default=DEFAULT_SWING_MODES): vol.All(cv.ensure_list, [cv.string]),
-        vol.Optional(CONF_SWING_HORIZONTAL_MODES, default=DEFAULT_SWING_HORIZONTAL_MODES): vol.All(cv.ensure_list, [cv.string]),
-        vol.Optional(CONF_DISABLE_AVAILABLE_CHECK, default=False): cv.boolean,
-        vol.Optional(CONF_TEMP_SENSOR_OFFSET): cv.boolean,
+        probatio.Required(CONF_NAME): cv.string,
+        probatio.Required(CONF_HOST): cv.string,
+        probatio.Required(CONF_MAC): cv.string,
+        probatio.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
+        probatio.Optional(CONF_ENCRYPTION_KEY): cv.string,
+        probatio.Optional(CONF_UID): cv.positive_int,
+        probatio.Optional(CONF_ENCRYPTION_VERSION, default=1): probatio.In([1, 2]),
+        probatio.Optional(CONF_HVAC_MODES, default=DEFAULT_HVAC_MODES): probatio.All(cv.ensure_list, [cv.string]),
+        probatio.Optional(CONF_FAN_MODES, default=DEFAULT_FAN_MODES): probatio.All(cv.ensure_list, [cv.string]),
+        probatio.Optional(CONF_SWING_MODES, default=DEFAULT_SWING_MODES): probatio.All(cv.ensure_list, [cv.string]),
+        probatio.Optional(CONF_SWING_HORIZONTAL_MODES, default=DEFAULT_SWING_HORIZONTAL_MODES): probatio.All(cv.ensure_list, [cv.string]),
+        probatio.Optional(CONF_DISABLE_AVAILABLE_CHECK, default=False): cv.boolean,
+        probatio.Optional(CONF_TEMP_SENSOR_OFFSET): cv.boolean,
     }
 )
 
-CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.All(cv.ensure_list, [CLIMATE_SCHEMA])}, extra=vol.ALLOW_EXTRA)
+CONFIG_SCHEMA = probatio.Schema({DOMAIN: probatio.All(cv.ensure_list, [CLIMATE_SCHEMA])}, extra=probatio.ALLOW_EXTRA)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -137,9 +137,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DOMAIN,
             "set_scheduled_preset",
             handle_set_scheduled_preset,
-            schema=vol.Schema({
-                vol.Optional("entity_id"): cv.entity_id,
-                vol.Required("preset_mode"): vol.In(["home", "sleep", "away", "off"]),
+            schema=probatio.Schema({
+                probatio.Optional("entity_id"): cv.entity_id,
+                probatio.Required("preset_mode"): probatio.In(["home", "sleep", "away", "off"]),
             }),
         )
 
