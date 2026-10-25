@@ -172,3 +172,7 @@ developed against one unit in one house, so reports from other models are welcom
 
 [GPL-3.0](LICENSE), inherited from the upstream integration. See [`NOTICE`](NOTICE) for the origin
 and modification notice.
+
+Gree Comfort comes with no warranty (GPL-3.0, sections 15 and 16). It controls heating and cooling
+equipment and is not a safety device: keep the unit's own controls and any independent protection
+in place, and test automations before leaving them unattended.
