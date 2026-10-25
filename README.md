@@ -3,7 +3,7 @@
 [![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
 [![health](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml/badge.svg?branch=develop)](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml)
 [![Release](https://img.shields.io/github/v/release/rpulivella/GreeComfort)](https://github.com/rpulivella/GreeComfort/releases)
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 
 A Home Assistant integration for Gree air conditioners that adds comfort presets, tracks when
 someone overrides them, and turns the unit off once the room is genuinely comfortable.
@@ -172,3 +172,7 @@ developed against one unit in one house, so reports from other models are welcom
 
 [GPL-3.0](LICENSE), inherited from the upstream integration. See [`NOTICE`](NOTICE) for the origin
 and modification notice.
+
+Gree Comfort comes with no warranty (GPL-3.0, sections 15 and 16). It controls heating and cooling
+equipment and is not a safety device: keep the unit's own controls and any independent protection
+in place, and test automations before leaving them unattended.
