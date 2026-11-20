@@ -119,7 +119,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.info("Removing stale entity %s (unique_id: %s)", entity_entry.entity_id, entity_entry.unique_id)
             registry.async_remove(entity_entry.entity_id)
 
-    _LOGGER.debug("Setting up config entry %s with data: %s", entry.entry_id, combined_data)
+    _LOGGER.debug("Setting up config entry %s with data: %s", entry.entry_id, {k: v for k, v in combined_data.items() if k != CONF_ENCRYPTION_KEY})
     entry.async_on_unload(entry.add_update_listener(_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
