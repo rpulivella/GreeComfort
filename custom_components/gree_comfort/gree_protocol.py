@@ -7,7 +7,6 @@ import asyncio
 import base64
 import logging
 import socket
-import time
 
 # Third-party imports
 try:
@@ -177,7 +176,7 @@ async def GetDeviceKeyGCM(mac_addr, ip_addr, port, max_retries=8):
         return key
 
 
-async def discover_gree_devices(hass, timeout=5):
+async def discover_gree_devices(hass, timeout: float = 5):
     """Discover Gree devices on the local network using UDP broadcast."""
     _LOGGER.debug("Starting Gree device discovery...")
 
@@ -186,8 +185,9 @@ async def discover_gree_devices(hass, timeout=5):
     # Set up UDP socket for broadcast
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    sock.settimeout(timeout)
+    sock.setblocking(False)
     sock.bind(("", 0))
+    loop = asyncio.get_running_loop()
 
     devices = []
 
@@ -217,10 +217,10 @@ async def discover_gree_devices(hass, timeout=5):
 
         _LOGGER.debug("Sent discovery packets, waiting for replies...")
 
-        start = time.time()
-        while time.time() - start < timeout:
+        deadline = loop.time() + timeout
+        while (remaining := deadline - loop.time()) > 0:
             try:
-                data, addr = sock.recvfrom(1024)
+                data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), remaining)
                 try:
                     # Try to parse as JSON and decrypt if possible
                     response = simplejson.loads(data.decode(errors="ignore"))
