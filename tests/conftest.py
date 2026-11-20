@@ -13,19 +13,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_component import async_update_entity
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM, UnitSystem
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.gree_comfort.climate import GreeClimate
 from custom_components.gree_comfort.const import DOMAIN
 
 MAC = "aabbccddeeff"
 KEY = "abcdefghijklmnop"
-
-
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Load custom_components/ in every test."""
-    yield
 
 
 class FakeUnit:

@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.entity_component import async_update_entity
-from pytest_homeassistant_custom_component.common import mock_restore_cache
+from pytest_homeassistant.common import mock_restore_cache
 
 from .conftest import entity_id
 

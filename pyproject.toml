@@ -12,6 +12,9 @@ license-files = ["LICENSE", "NOTICE"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# Let Home Assistant install its httpx alias before respx is imported.
+addopts = "-p no:respx"
+pythonpath = ["."]
 
 [tool.coverage.run]
 source = ["custom_components/gree_comfort"]
