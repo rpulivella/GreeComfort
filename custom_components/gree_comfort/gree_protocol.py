@@ -31,6 +31,13 @@ GCM_IV = b"\x54\x40\x78\x44\x49\x67\x5a\x51\x6c\x5e\x63\x13"
 GCM_ADD = b"qualcomm-test"
 GENERIC_GREE_DEVICE_KEY = "a3K8Bx%2r8Y7#xDh"
 GENERIC_GREE_DEVICE_KEY_GCM = b"{yxAHAY_Lm6pbC/<"
+DISCOVERY_PORT = 7000
+DEFAULT_BROADCAST_ADDRESSES = (
+    "255.255.255.255",  # Limited broadcast
+    "192.168.255.255",  # /16 broadcast for 192.168.x.x networks
+    "10.255.255.255",  # /8 broadcast for 10.x.x.x networks
+    "172.31.255.255",  # /12 broadcast for 172.16-31.x.x networks
+)
 
 
 async def FetchResult(cipher, ip_addr, port, json_data, encryption_version=1, max_retries=8):
@@ -174,7 +181,6 @@ async def discover_gree_devices(hass, timeout=5):
     """Discover Gree devices on the local network using UDP broadcast."""
     _LOGGER.debug("Starting Gree device discovery...")
 
-    BROADCAST_PORT = 7000
     DISCOVERY_MESSAGE = b'{"t":"scan"}'
 
     # Set up UDP socket for broadcast
@@ -187,12 +193,7 @@ async def discover_gree_devices(hass, timeout=5):
 
     try:
         # Default broadcast addresses to try
-        broadcast_addresses = [
-            "255.255.255.255",  # Limited broadcast
-            "192.168.255.255",  # /16 broadcast for 192.168.x.x networks
-            "10.255.255.255",  # /8 broadcast for 10.x.x.x networks
-            "172.31.255.255",  # /12 broadcast for 172.16-31.x.x networks
-        ]
+        broadcast_addresses = list(DEFAULT_BROADCAST_ADDRESSES)
 
         # Get broadcast addresses from Home Assistant's network helper
         try:
@@ -210,7 +211,7 @@ async def discover_gree_devices(hass, timeout=5):
         for broadcast_addr in broadcast_addresses:
             try:
                 _LOGGER.debug(f"Sending discovery to {broadcast_addr}")
-                sock.sendto(DISCOVERY_MESSAGE, (broadcast_addr, BROADCAST_PORT))
+                sock.sendto(DISCOVERY_MESSAGE, (broadcast_addr, DISCOVERY_PORT))
             except Exception as e:
                 _LOGGER.debug(f"Failed to send to {broadcast_addr}: {e}")
 
@@ -258,7 +259,7 @@ async def discover_gree_devices(hass, timeout=5):
                             device_info = {
                                 "name": pack_json.get("name", "") or f"Gree {mac_addr[-4:]}",
                                 "host": addr[0],
-                                "port": BROADCAST_PORT,
+                                "port": DISCOVERY_PORT,
                                 "mac": mac_addr,
                                 "brand": pack_json.get("brand", "gree"),
                                 "model": pack_json.get("model", "gree"),
@@ -268,14 +269,14 @@ async def discover_gree_devices(hass, timeout=5):
                             if sub_cnt > 1:
                                 try:
                                     _LOGGER.debug(f"Fetching sub-devices for {mac_addr} (subCnt={sub_cnt})")
-                                    sub_devices = await get_subunits_list(mac_addr, addr[0], BROADCAST_PORT)
+                                    sub_devices = await get_subunits_list(mac_addr, addr[0], DISCOVERY_PORT)
                                     for sub_device in sub_devices.get("list", []):
                                         sub_mac = sub_device.get("mac", "")
                                         if sub_mac:
                                             sub_device_info = {
                                                 "name": f"{device_info['name']}_{sub_mac[:4]}",
                                                 "host": addr[0],
-                                                "port": BROADCAST_PORT,
+                                                "port": DISCOVERY_PORT,
                                                 "mac": f"{sub_mac}@{mac_addr}",
                                                 "brand": device_info["brand"],
                                                 "model": sub_device.get("mid", device_info["model"]),
