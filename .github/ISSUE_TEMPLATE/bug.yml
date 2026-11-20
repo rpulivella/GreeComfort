@@ -86,5 +86,5 @@ body:
     id: logs
     attributes:
       label: Log lines
-      description: Optional. Lines from Settings, System, Logs that mention gree_comfort. Remove IP addresses, MAC addresses, host names and anything else that identifies your home before you paste.
+      description: Optional. Lines from Settings, System, Logs that mention gree_comfort. Remove IP addresses, MAC addresses, host names, device encryption keys and anything else that identifies your home before you paste.
       render: text
