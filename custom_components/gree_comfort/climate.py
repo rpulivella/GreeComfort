@@ -269,7 +269,7 @@ class GreeClimate(ClimateEntity):
         self.CIPHER = None
 
         if encryption_key:
-            _LOGGER.info(f"{self._name}: Using configured encryption key: {encryption_key}")
+            _LOGGER.info(f"{self._name}: Using the configured encryption key")
             self._encryption_key = encryption_key.encode("utf8")
             if encryption_version == 1:
                 # Cipher to use to encrypt/decrypt

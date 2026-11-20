@@ -22,7 +22,6 @@ from homeassistant.const import CONF_HOST, CONF_MAC, CONF_PORT
 
 # Local imports
 from .const import (
-    CONF_ENCRYPTION_KEY,
     CONF_ENCRYPTION_VERSION,
 )
 
@@ -104,20 +103,19 @@ async def test_connection(config):
     ip_addr = config[CONF_HOST]
     port = config[CONF_PORT]
     encryption_version = config[CONF_ENCRYPTION_VERSION]
-    encryption_key = config[CONF_ENCRYPTION_KEY]
 
     mac_addr = config.get(CONF_MAC).encode().replace(b":", b"").decode("utf-8").lower()
     if "@" in mac_addr:
         mac_addr = mac_addr.split("@", 1)[1]
 
-    _LOGGER.debug(f"test_connection: host={ip_addr}, port={port}, mac={mac_addr}, encryption_version={encryption_version}, encryption_key={encryption_key}")
+    _LOGGER.debug(f"test_connection: host={ip_addr}, port={port}, mac={mac_addr}, encryption_version={encryption_version}")
 
     try:
         if encryption_version == 1:
             key = await GetDeviceKey(mac_addr, ip_addr, port)
         else:
             key = await GetDeviceKeyGCM(mac_addr, ip_addr, port)
-        _LOGGER.debug(f"test_connection: Got device key: {key}")
+        _LOGGER.debug("test_connection: got a device key")
         return key is not None
     except Exception as e:
         _LOGGER.error(f"Gree device at {ip_addr} is unreachable: {type(e).__name__}: {e}", exc_info=True)
@@ -131,13 +129,13 @@ async def GetDeviceKey(mac_addr, ip_addr, port, max_retries=8):
     jsonPayloadToSend = f'{{"cid": "app","i": 1,"pack": "{pack}","t":"pack","tcid":"{mac_addr}","uid": 0}}'
     try:
         result = await FetchResult(cipher, ip_addr, port, jsonPayloadToSend, max_retries=max_retries)
-        _LOGGER.debug(f"GetDeviceKey: FetchResult: {result}")
+        _LOGGER.debug("GetDeviceKey: bind response received")
         key = result["key"].encode("utf8")
     except Exception:
         _LOGGER.debug("Error getting device encryption key!")
         return None
     else:
-        _LOGGER.debug(f"Fetched device encryption key: {str(key)}")
+        _LOGGER.debug("Fetched device encryption key")
         return key
 
 
@@ -162,13 +160,13 @@ async def GetDeviceKeyGCM(mac_addr, ip_addr, port, max_retries=8):
     jsonPayloadToSend = f'{{"cid": "app","i": 1,"pack": "{pack}","t":"pack","tcid":"{mac_addr}","uid": 0, "tag" : "{tag}"}}'
     try:
         result = await FetchResult(GetGCMCipher(GENERIC_GREE_DEVICE_KEY_GCM), ip_addr, port, jsonPayloadToSend, encryption_version=2, max_retries=max_retries)
-        _LOGGER.debug(f"GetDeviceKeyGCM: FetchResult: {result}")
+        _LOGGER.debug("GetDeviceKeyGCM: bind response received")
         key = result["key"].encode("utf8")
     except Exception:
         _LOGGER.debug("Error getting device encryption key!")
         return None
     else:
-        _LOGGER.debug(f"Fetched device encryption key: {str(key)}")
+        _LOGGER.debug("Fetched device encryption key")
         return key
 
 
