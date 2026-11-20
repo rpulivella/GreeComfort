@@ -84,6 +84,6 @@ VIRTUAL_ENV=.venv uv pip install -r requirements_test.txt
 .venv/bin/python3 scripts/pr-preflight-check.py   # every gate, what CI runs
 ```
 
-`requirements_test.txt` pins `pytest-homeassistant-custom-component` to the release matching the Home Assistant version in use. The simulated unit in `tests/conftest.py` answers at the network boundary, so request building, encryption and `SyncState` run for real.
+`requirements_test.txt` pins `pytest-homeassistant`, Home Assistant's own test package, whose release number is the Home Assistant release the suite runs against. The simulated unit in `tests/conftest.py` answers at the network boundary, so request building, encryption and `SyncState` run for real.
 
 Every commit leaves the test suite green. No exceptions.
