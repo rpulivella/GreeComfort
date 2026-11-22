@@ -28,3 +28,10 @@ async def test_the_defaults_are_held_in_celsius(hass: HomeAssistant, unit, setup
     device = await setup_integration(system)
     held = {preset: (temps["heat"], temps["cool"]) for preset, temps in device._preset_temps.items()}
     assert held == {preset: pytest.approx((to_celsius(heat), to_celsius(cool))) for preset, (heat, cool) in defaults.items()}
+
+
+@pytest.mark.parametrize("where", ["options", "data"])
+async def test_a_legacy_entry_holding_preset_values_loads_with_the_defaults(hass: HomeAssistant, unit, setup_integration, where):
+    legacy = {"preset_home_heat": 23, "preset_sleep_cool": 29}
+    device = await (setup_integration(METRIC_SYSTEM, options=legacy) if where == "options" else setup_integration(METRIC_SYSTEM, **legacy))
+    assert (device._preset_temps["home"]["heat"], device._preset_temps["sleep"]["cool"]) == (20, 26)

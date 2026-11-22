@@ -36,12 +36,6 @@ OPTION_KEYS = {
     CONF_SWING_HORIZONTAL_MODES,
     CONF_DISABLE_AVAILABLE_CHECK,
     CONF_TEMP_SENSOR_OFFSET,
-    "preset_home_heat",
-    "preset_home_cool",
-    "preset_sleep_heat",
-    "preset_sleep_cool",
-    "preset_away_heat",
-    "preset_away_cool",
 }
 
 MODES_MAPPING = {
