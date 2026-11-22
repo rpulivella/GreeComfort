@@ -111,7 +111,7 @@ def encode_temp_c(T):
       half_bit = n & 1       (1 if it is an odd half‐step)
     """
     # 1) Compute "twice T" and round to nearest integer:
-    #    math.floor(T * 2 + 0.5) is equivalent to rounding ties upward.
+    #    round() sends an exact tie to the even half-step, the rule Home Assistant applies to PRECISION_HALVES.
     n = int(round(T * 2))
 
     # 2) The low bit of n says ".5" (odd) versus ".0" (even):
