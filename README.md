@@ -1,6 +1,6 @@
 # Gree Comfort
 
-[![HACS: custom repository](https://img.shields.io/badge/HACS-custom%20repository-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![Marketplace: custom repository](https://img.shields.io/badge/Marketplace-custom%20repository-41BDF5.svg)](https://www.home-assistant.io/integrations/marketplace/)
 [![health](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml/badge.svg?branch=develop)](https://github.com/rpulivella/GreeComfort/actions/workflows/health.yml)
 [![Release](https://img.shields.io/github/v/release/rpulivella/GreeComfort)](https://github.com/rpulivella/GreeComfort/releases)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
@@ -58,12 +58,12 @@ Three facts about these units shape the whole design.
 
 ## Installation
 
-### HACS
+### Marketplace
 
-1. In Home Assistant, open **HACS**.
-2. Open the three-dot menu and choose **Custom repositories**.
-3. Add `https://github.com/rpulivella/GreeComfort` with the type **Integration**.
-4. Search HACS for **Gree Comfort** and download it.
+1. In Home Assistant, open **Settings** > **Marketplace**. The first time, the Marketplace asks you to accept its warning and to connect your GitHub account.
+2. Select **Add from link** in the upper-right corner.
+3. Enter `https://github.com/rpulivella/GreeComfort` under **GitHub link** and select **Add**. If the Marketplace asks for a type, choose **Integration**.
+4. Open **Gree Comfort** in the list and install it.
 5. Restart Home Assistant.
 
 ### Manual install

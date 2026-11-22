@@ -67,7 +67,7 @@ v1.1.2                # the same build accepted after live testing, published as
 
 - **A test build is tagged when it is deployed**, `-b01` first and the iteration incremented for a
   rebuild of the same version. These tags are never published as releases.
-- **An accepted build is tagged `v<version>`** and published as a GitHub Release, because HACS reads
+- **An accepted build is tagged `v<version>`** and published as a GitHub Release, because the Marketplace reads
   the version its users see from the release's tag name. Its notes list the pull requests merged
   since the previous release, grouped as fixes, changes and housekeeping, since there is no
   CHANGELOG.
