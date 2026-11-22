@@ -383,6 +383,8 @@ class GreeClimate(ClimateEntity):
         self._eco_shutoff_enabled = False
         self._eco_shutoff_active = False
         self._eco_shutoff_sensor_missing_s = 0
+        # The sensor and its last report before a silence, while Eco Shutoff treats it as stale
+        self._eco_shutoff_stale_episode: tuple[str, datetime] | None = None
         self._eco_shutoff_satisfied_since: datetime | None = None
         # Tunable parameters (defaults; overridden by number entity restore)
         self._eco_shutoff_satisfied_margin = 1.5   # °C past setpoint before shutoff
@@ -1156,6 +1158,7 @@ class GreeClimate(ClimateEntity):
     async def _check_eco_shutoff(self):
         """Eco Shutoff state machine, runs every poll cycle."""
         if not self._eco_shutoff_enabled or not self._eco_shutoff_sensor:
+            self._eco_shutoff_stale_episode = None
             if self._eco_shutoff_active:
                 # Stale active flag (feature disabled or sensor removed after a firing) 
                 # clear it now so the Store and UI stay consistent across reloads.
@@ -1178,9 +1181,12 @@ class GreeClimate(ClimateEntity):
             age_s = (dt_util.utcnow() - last_reported).total_seconds()
             if age_s > ECO_SHUTOFF_SENSOR_STALE_S:
                 sensor_stale = True
-                _LOGGER.warning(
-                    f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago, treating as stale"
-                )
+                episode = self._eco_shutoff_stale_episode
+                if episode is None or episode[0] != self._eco_shutoff_sensor:
+                    self._eco_shutoff_stale_episode = (self._eco_shutoff_sensor, last_reported)
+                    _LOGGER.warning(
+                        f"{self._name}: Eco Shutoff sensor last reported {age_s / 60:.0f} min ago, treating as stale"
+                    )
         if sensor_state is None or sensor_state.state in ("unavailable", "unknown") or sensor_stale:
             self._eco_shutoff_satisfied_since = None
             self._eco_shutoff_sensor_missing_s += SCAN_INTERVAL.total_seconds()
@@ -1211,6 +1217,13 @@ class GreeClimate(ClimateEntity):
             return
 
         # Sensor is healthy, clear any outstanding repair issue and reset counter
+        episode, self._eco_shutoff_stale_episode = self._eco_shutoff_stale_episode, None
+        if episode is not None and episode[0] == self._eco_shutoff_sensor:
+            reported = getattr(sensor_state, "last_reported", sensor_state.last_updated)
+            _LOGGER.info(
+                f"{self._name}: Eco Shutoff sensor reporting again after "
+                f"{(reported - episode[1]).total_seconds() / 60:.0f} min of silence"
+            )
         self._eco_shutoff_sensor_missing_s = 0
         ir.async_delete_issue(self.hass, DOMAIN, f"eco_shutoff_sensor_{self._mac_addr}")
 
