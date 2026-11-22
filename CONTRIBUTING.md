@@ -61,18 +61,20 @@ A release is a tag on `develop`; there are no release branches. The version is t
 `custom_components/gree_comfort/manifest.json`, SemVer, and a tag matches it exactly.
 
 ```
-release/v1.1.2-b01    # a build deployed to a live Home Assistant for testing, internal only
-v1.1.2                # the same build accepted after live testing, published as a GitHub Release
+v1.1.2-b01    # a beta, published as a GitHub pre-release for testing
+v1.1.2        # the same code with the version line changed, accepted after testing, published as a GitHub Release
 ```
 
-- **A test build is tagged when it is deployed**, `-b01` first and the iteration incremented for a
-  rebuild of the same version. These tags are never published as releases.
-- **An accepted build is tagged `v<version>`** and published as a GitHub Release, because the Marketplace reads
-  the version its users see from the release's tag name. Its notes list the pull requests merged
-  since the previous release, grouped as fixes, changes and housekeeping, since there is no
-  CHANGELOG.
-- **A tag always points at exactly what was tested**: the tagged commit's integration matches the
-  deployed copy byte for byte.
+- **A beta is tagged `v<version>-b<NN>`**, `-b01` first and the iteration incremented for a rebuild
+  of the same version, and `manifest.json` carries the same version as the tag. It is published as
+  a GitHub pre-release, which the Marketplace offers only to users who turn on a repository's
+  Pre-release switch, so the owner installs and tests it the way every user installs a release.
+- **An accepted build is tagged `v<version>`** and published as a GitHub Release, because the
+  Marketplace reads the version its users see from the release's tag name. Its notes list the pull
+  requests merged since the previous release, grouped as fixes, changes and housekeeping, since
+  there is no CHANGELOG.
+- **A final is exactly what was tested**: it differs from its accepted beta by the version line in
+  `manifest.json` and nothing else.
 - Never reuse a tag. `/release-tag` owns the procedure.
 
 ## Build and verify
