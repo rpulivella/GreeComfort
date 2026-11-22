@@ -794,14 +794,14 @@ class GreeClimate(ClimateEntity):
         return self._name
 
     @property
-    def temperature_unit(self):
-        _LOGGER.debug(f"{self._name}: temperature_unit() = {self._unit_of_measurement}")
+    def native_temperature_unit(self):
+        _LOGGER.debug(f"{self._name}: native_temperature_unit() = {self._unit_of_measurement}")
         # Return the unit of measurement.
         return self._unit_of_measurement
 
     @property
-    def current_temperature(self):
-        _LOGGER.debug(f"{self._name}: current_temperature() = {self._current_temperature}")
+    def native_current_temperature(self):
+        _LOGGER.debug(f"{self._name}: native_current_temperature() = {self._current_temperature}")
         # Return the current temperature.
         return self._current_temperature
 
@@ -814,8 +814,8 @@ class GreeClimate(ClimateEntity):
         return MAX_TEMP_C
 
     @property
-    def target_temperature(self):
-        _LOGGER.debug(f"{self._name}: target_temperature() = {self._target_temperature}")
+    def native_target_temperature(self):
+        _LOGGER.debug(f"{self._name}: native_target_temperature() = {self._target_temperature}")
         # Return the temperature we try to reach.
         return self._target_temperature
 
