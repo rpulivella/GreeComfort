@@ -160,7 +160,7 @@ class GreeSensor(GreeEntity, SensorEntity):
 
         # Set temperature unit for temperature sensors
         if description.device_class == SensorDeviceClass.TEMPERATURE:
-            self._attr_native_unit_of_measurement = self._device.temperature_unit
+            self._attr_native_unit_of_measurement = self._device.native_temperature_unit
 
     @property
     def native_value(self):

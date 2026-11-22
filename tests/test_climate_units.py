@@ -4,6 +4,10 @@ The entity reports native °C and Home Assistant converts. These tests pin the c
 user sees, so the property names the entity uses to report them can change without a number moving.
 """
 
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.util.unit_system import METRIC_SYSTEM, US_CUSTOMARY_SYSTEM
@@ -63,3 +67,11 @@ async def test_the_entity_reports_native_celsius(hass: HomeAssistant, unit, setu
     # TemSen 21°C is the room, and the unit's 75°F setpoint is exactly (75 - 32) * 5 / 9 in °C
     assert device.native_current_temperature == 21
     assert device.native_target_temperature == pytest.approx((75 - 32) * 5 / 9)
+
+
+def test_importing_the_climate_platform_logs_no_deprecation():
+    # Home Assistant checks the class definition when it is created, so only a fresh interpreter sees it
+    code = "import logging, sys; logging.basicConfig(stream=sys.stdout); import custom_components.gree_comfort.climate"
+    result = subprocess.run([sys.executable, "-c", code], cwd=Path(__file__).parent.parent,
+                            capture_output=True, text=True, check=True)
+    assert "deprecated" not in result.stdout + result.stderr
