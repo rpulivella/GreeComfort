@@ -88,3 +88,34 @@ async def test_turning_eco_shutoff_off_closes_the_episode_without_a_recovery_lin
     await watch(hass, device)
     await device._check_eco_shutoff()
     assert lines(caplog, "reporting again") == []
+
+
+async def test_a_pause_in_evaluation_closes_the_episode_without_a_recovery_line(hass: HomeAssistant, unit, setup_integration, freezer, caplog):
+    device = await setup_integration()
+    await watch(hass, device)
+    freezer.tick(SILENCE)
+    await device._check_eco_shutoff()
+    # Evaluation pauses (no preset), the sensor speaks again and keeps reporting for hours
+    device._preset_mode = "none"
+    freezer.tick(timedelta(minutes=1))
+    report(hass)
+    freezer.tick(timedelta(minutes=300))
+    report(hass)
+    await device._check_eco_shutoff()
+    caplog.set_level(logging.INFO)
+    device._preset_mode = "home"
+    await device._check_eco_shutoff()
+    assert lines(caplog, "reporting again") == []
+
+
+async def test_a_silence_that_outlasts_a_pause_is_noticed_again(hass: HomeAssistant, unit, setup_integration, freezer, caplog):
+    device = await setup_integration()
+    await watch(hass, device)
+    caplog.set_level(logging.INFO)
+    freezer.tick(SILENCE)
+    await device._check_eco_shutoff()
+    device._preset_mode = "none"
+    await device._check_eco_shutoff()
+    device._preset_mode = "home"
+    await device._check_eco_shutoff()
+    assert len(lines(caplog, "treating as stale")) == 2

@@ -1168,9 +1168,9 @@ class GreeClimate(ClimateEntity):
                 signal = f"{DOMAIN}_{self._mac_addr}_eco_shutoff_update"
                 async_dispatcher_send(self.hass, signal, False)
             return
-        if self.hvac_mode not in (HVACMode.HEAT, HVACMode.COOL):
-            return
-        if self._preset_mode in (PRESET_NONE, PRESET_OFF):
+        if self.hvac_mode not in (HVACMode.HEAT, HVACMode.COOL) or self._preset_mode in (PRESET_NONE, PRESET_OFF):
+            # A pause ends the observation, so an open episode could no longer be timed honestly
+            self._eco_shutoff_stale_episode = None
             return
 
         # --- Sensor availability check ---
