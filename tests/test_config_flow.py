@@ -1,5 +1,7 @@
 """Config and options flows, with the network helpers the flow calls patched out."""
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -112,3 +114,33 @@ async def test_yaml_import_aborts_on_a_configured_unit(hass: HomeAssistant):
     MockConfigEntry(domain=DOMAIN, unique_id="aabbccddeeff", data=MANUAL).add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data=MANUAL)
     assert result["type"] is FlowResultType.ABORT and result["reason"] == "already_configured"
+
+
+def configured(hass: HomeAssistant) -> None:
+    MockConfigEntry(domain=DOMAIN, unique_id="aabbccddeeff", title="Basement Mini-Split", data=MANUAL).add_to_hass(hass)
+
+
+async def test_manual_entry_names_the_configured_unit_in_the_abort(hass: HomeAssistant):
+    configured(hass)
+    result = await start(hass, "manual")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], MANUAL)
+    assert result["description_placeholders"] == {"name": "Basement Mini-Split"}
+
+
+async def test_discovery_names_the_configured_unit_in_the_abort(hass: HomeAssistant):
+    configured(hass)
+    with patch(f"{FLOW}.discover_gree_devices", AsyncMock(return_value=[FOUND])):
+        result = await start(hass, "discover")
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"device": "aabbccddeeff_10.0.0.2"})
+    assert result["type"] is FlowResultType.ABORT and result["description_placeholders"] == {"name": "Basement Mini-Split"}
+
+
+async def test_yaml_import_names_the_configured_unit_in_the_abort(hass: HomeAssistant):
+    configured(hass)
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_IMPORT}, data=MANUAL)
+    assert result["description_placeholders"] == {"name": "Basement Mini-Split"}
+
+
+def test_the_abort_text_uses_the_name_placeholder():
+    english = json.loads((Path(__file__).parent.parent / "custom_components/gree_comfort/translations/en.json").read_text())
+    assert english["config"]["abort"]["already_configured"] == "A device with this MAC address is already configured as {name}."

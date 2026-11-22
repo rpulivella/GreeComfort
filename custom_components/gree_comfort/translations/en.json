@@ -4,7 +4,7 @@
       "cannot_connect": "Unable to connect to the device. Please check the network connection and try again."
     },
     "abort": {
-      "already_configured": "A device with this MAC address is already configured.",
+      "already_configured": "A device with this MAC address is already configured as {name}.",
       "cannot_connect": "Could not connect to the device."
     },
     "step": {
@@ -20,12 +20,12 @@
       },
       "discovery": {
         "title": "Discovered Devices",
-        "description": "Found {devices_found} Gree device(s). Select one to add or choose manual setup.",
+        "description": "Compatible devices found: {devices_found}. Select which unit to add.",
         "data": {
           "device": "Device"
         },
         "data_description": {
-          "device": "The unit to add. Choosing a unit set up earlier stops with a message."
+          "device": "All detected units are listed, including any already configured in Home Assistant. Choosing one of those does not affect its existing configuration."
         }
       },
       "detect_encryption": {

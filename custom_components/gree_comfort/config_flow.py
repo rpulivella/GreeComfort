@@ -58,6 +58,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._discovered_devices: list[dict] = []
         self._selected_device: dict | None = None
 
+    def _abort_if_mac_configured(self) -> None:
+        """Abort when the MAC is set up, naming the entry so the user knows which unit it is."""
+        entry = self.hass.config_entries.async_entry_for_domain_unique_id(self.handler, self.unique_id)
+        self._abort_if_unique_id_configured(description_placeholders={"name": entry.title} if entry else None)
+
     async def async_step_user(self, user_input: dict | None = None) -> FlowResult:
         """Handle the initial step - show discovery or manual entry."""
         if user_input is not None:
@@ -90,7 +95,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if device_id == selected_device:
                     # Check if already configured
                     await self.async_set_unique_id(device["mac"])
-                    self._abort_if_unique_id_configured()
+                    self._abort_if_mac_configured()
 
                     # Store selected device for next step
                     self._selected_device = device
@@ -201,7 +206,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             # Check if already configured by MAC
             await self.async_set_unique_id(self._data[CONF_MAC])
-            self._abort_if_unique_id_configured()
+            self._abort_if_mac_configured()
 
             is_connection_valid = await test_connection(self._data)
             if not is_connection_valid:
@@ -232,7 +237,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._data.setdefault(CONF_ENCRYPTION_VERSION, 1)
 
         await self.async_set_unique_id(self._data[CONF_MAC])
-        self._abort_if_unique_id_configured()
+        self._abort_if_mac_configured()
 
         if not await test_connection(self._data):
             return self.async_abort(reason="cannot_connect")
