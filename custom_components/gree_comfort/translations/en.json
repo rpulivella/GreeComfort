@@ -73,13 +73,7 @@
           "swing_modes": "Vertical Swing Modes",
           "swing_horizontal_modes": "Horizontal Swing Modes",
           "disable_available_check": "Disable Available Check",
-          "temp_sensor_offset": "Temperature Sensor Offset",
-          "preset_home_heat": "Home - Heat Temperature",
-          "preset_home_cool": "Home - Cool Temperature",
-          "preset_sleep_heat": "Sleep - Heat Temperature",
-          "preset_sleep_cool": "Sleep - Cool Temperature",
-          "preset_away_heat": "Away - Heat Temperature",
-          "preset_away_cool": "Away - Cool Temperature"
+          "temp_sensor_offset": "Temperature Sensor Offset"
         },
         "data_description": {
           "hvac_modes": "The operating modes offered for this unit. Remove any the unit does not support.",

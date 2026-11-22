@@ -91,6 +91,12 @@ PRESET_NONE = "none"
 
 PRESET_MODES = [PRESET_NONE, PRESET_HOME, PRESET_SLEEP, PRESET_AWAY, PRESET_OFF]
 
+# (heat, cool) a first install starts from, in whole degrees of the user's own unit; stored values replace them
+DEFAULT_PRESET_TEMPS = {
+    UnitOfTemperature.CELSIUS: {PRESET_HOME: (20, 24), PRESET_SLEEP: (17, 26), PRESET_AWAY: (15, 28)},
+    UnitOfTemperature.FAHRENHEIT: {PRESET_HOME: (68, 75), PRESET_SLEEP: (62, 78), PRESET_AWAY: (59, 82)},
+}
+
 # Storage for persistence
 STORAGE_KEY = "gree_climate_storage"
 STORAGE_VERSION = 1
@@ -126,19 +132,6 @@ async def create_gree_device(hass, config):
     disable_available_check = config.get(CONF_DISABLE_AVAILABLE_CHECK, False)
     temp_sensor_offset = config.get(CONF_TEMP_SENSOR_OFFSET)
 
-    # Load preset temperature options
-    use_fahrenheit = hass.config.units.temperature_unit == UnitOfTemperature.FAHRENHEIT
-
-    preset_options = {
-        "preset_home_heat": config.get("preset_home_heat"),
-        "preset_home_cool": config.get("preset_home_cool"),
-        "preset_sleep_heat": config.get("preset_sleep_heat"),
-        "preset_sleep_cool": config.get("preset_sleep_cool"),
-        "preset_away_heat": config.get("preset_away_heat"),
-        "preset_away_cool": config.get("preset_away_cool"),
-        "use_fahrenheit": use_fahrenheit,
-    }
-
     return GreeClimate(
         hass,
         name,
@@ -154,7 +147,6 @@ async def create_gree_device(hass, config):
         encryption_key,
         uid,
         temp_sensor_offset,
-        preset_options,
     )
 
 
@@ -210,7 +202,6 @@ class GreeClimate(ClimateEntity):
         encryption_key=None,
         uid=None,
         temp_sensor_offset=None,
-        preset_options=None,
     ):
         _LOGGER.info(f"{name}: Initializing Gree climate device")
 
@@ -325,41 +316,15 @@ class GreeClimate(ClimateEntity):
         self._tracked_mode = None
         self._tracked_pow = None
 
-        # Load preset temperatures from options or use defaults
-        if preset_options:
-            use_fahrenheit = preset_options.get("use_fahrenheit", False)
-
-            def load_temp(key, default_c, default_f):
-                """Load temp from options and convert to Celsius if needed."""
-                default = default_f if use_fahrenheit else default_c
-                temp = preset_options.get(key, default)
-                if temp is None:
-                    temp = default
-                # Simple F to C conversion (gree_f_to_c returns a tuple for device protocol)
-                return (temp - 32.0) * 5.0 / 9.0 if use_fahrenheit else temp
-
-            self._preset_temps = {
-                PRESET_HOME: {
-                    "heat": load_temp("preset_home_heat", 20, 68),
-                    "cool": load_temp("preset_home_cool", 24, 75),
-                },
-                PRESET_SLEEP: {
-                    "heat": load_temp("preset_sleep_heat", 17, 62),
-                    "cool": load_temp("preset_sleep_cool", 26, 78),
-                },
-                PRESET_AWAY: {
-                    "heat": load_temp("preset_away_heat", 15, 59),
-                    "cool": load_temp("preset_away_cool", 28, 82),
-                },
+        # Presets start from the defaults in the user's unit and are held in °C like every temperature here
+        unit = UnitOfTemperature.FAHRENHEIT if self._use_fahrenheit_setpoints else UnitOfTemperature.CELSIUS
+        self._preset_temps = {
+            preset: {
+                mode: TemperatureConverter.convert(value, unit, UnitOfTemperature.CELSIUS)
+                for mode, value in zip(("heat", "cool"), temps, strict=True)
             }
-
-        else:
-            # Default preset temperatures in Celsius
-            self._preset_temps = {
-                PRESET_HOME: {"heat": 20, "cool": 24},
-                PRESET_SLEEP: {"heat": 17, "cool": 26},
-                PRESET_AWAY: {"heat": 15, "cool": 28},
-            }
+            for preset, temps in DEFAULT_PRESET_TEMPS[unit].items()
+        }
 
         # Smart 8°C mode state (defaults; updated by switch/number entity restore)
         self._stht_smart_enabled = True

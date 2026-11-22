@@ -74,13 +74,13 @@ def pin_entity(hass: HomeAssistant) -> Callable[[str, str, str], None]:
 def setup_integration(hass: HomeAssistant, unit: FakeUnit):
     """Return a coroutine that loads the integration against the simulated unit."""
 
-    async def setup(units: UnitSystem = US_CUSTOMARY_SYSTEM, **data: Any) -> GreeClimate:
+    async def setup(units: UnitSystem = US_CUSTOMARY_SYSTEM, options: dict[str, Any] | None = None, **data: Any) -> GreeClimate:
         hass.config.units = units
         entry = MockConfigEntry(domain=DOMAIN, unique_id=MAC, data={
             "name": "Test Split", "host": "10.0.0.2", "mac": MAC, "port": 7000,
             "encryption_key": KEY, "encryption_version": 1, "temp_sensor_offset": False,
             **data,
-        })
+        }, options=options or {})
         entry.add_to_hass(hass)
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
