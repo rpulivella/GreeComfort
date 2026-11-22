@@ -29,7 +29,7 @@ developer, through an agentic harness, and one live unit that every change is ev
 ```
 
 The venv pins the test harness to the Home Assistant release in use (`requirements_test.txt`).
-CI runs `preflight`, `hassfest` and HACS's own `validate`, and only on a pull request that has
+CI runs `preflight`, `hassfest` and `hacs`, the Marketplace's own validation, and only on a pull request that has
 left draft.
 
 ## Laws you cannot learn from the code
@@ -86,8 +86,8 @@ left draft.
 - **`hassfest` is the authority on structure.** Translations nest entity strings under the entity's
   `translation_key` and carry no `description`; `icons.json` never repeats a default; every
   component the code imports is a manifest dependency. Run it before a PR touches any of those.
-- **HACS distributes GreeComfort**: one integration per repository, brand images in the
-  integration's `brand/` folder, and a manifest carrying every key HACS requires.
+- **The Marketplace distributes GreeComfort**: one integration per repository, brand images in the
+  integration's `brand/` folder, and a manifest carrying every key it requires.
 
 ## The shape of a change
 

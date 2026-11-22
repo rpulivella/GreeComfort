@@ -14,8 +14,8 @@ GitHub Release.
 
 - **`release/v<version>-b<NN>`**, an internal marker for a build deployed to the live Home
   Assistant for testing. Never published as a GitHub Release.
-- **`v<version>`**, a build accepted after live testing, published as a GitHub Release. HACS
-  reads the version its users see from this tag name, which is why it carries no prefix.
+- **`v<version>`**, a build accepted after live testing, published as a GitHub Release. The
+  Marketplace reads the version its users see from this tag name, which is why it carries no prefix.
 
 ## Steps
 

@@ -74,7 +74,7 @@ def runRuff() -> GateResult:
 
 
 def runJson() -> GateResult:
-    """Parse every JSON the integration ships and every one at the root, which HA and HACS read."""
+    """Parse every JSON the integration ships and every one at the root, which HA and the Marketplace read."""
     root = findRepositoryRoot()
     files = sorted((root / "custom_components").rglob("*.json")) + sorted(root.glob("*.json"))
     broken: list[str] = []

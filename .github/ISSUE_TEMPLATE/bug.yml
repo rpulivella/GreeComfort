@@ -20,7 +20,7 @@ body:
     id: integration
     attributes:
       label: Gree Comfort version
-      description: Shown on the integration's page in HACS.
+      description: Shown on the integration's page in the Marketplace.
     validations:
       required: true
   - type: input
